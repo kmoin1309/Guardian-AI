@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ConnectLLMModal from "../components/ConnectLLMModal";
 
 const ArchitectureSelection = () => {
     const navigate = useNavigate();
     const [hoveredCard, setHoveredCard] = useState(null);
     const [selectedArch, setSelectedArch] = useState(null);
     const [showConnectModal, setShowConnectModal] = useState(false);
+    const showLegacyModalLayout = false;
 
     const architectures = [
         {
@@ -88,6 +90,11 @@ const ArchitectureSelection = () => {
         setTimeout(() => {
             navigate('/main-dashboard');
         }, 600);
+    };
+
+    const handleLLMConnected = () => {
+        handleConnectLLM();
+        setShowConnectModal(false);
     };
 
     return (
@@ -211,8 +218,15 @@ const ArchitectureSelection = () => {
                 </p>
             </div>
 
-            {/* Connect LLM Modal - IMAGE 1 DESIGN */}
-            {showConnectModal && (
+            {/* Shared functional Connect LLM modal */}
+            <ConnectLLMModal
+                isOpen={showConnectModal}
+                onClose={() => setShowConnectModal(false)}
+                onSuccess={handleLLMConnected}
+            />
+
+            {/* Legacy static Connect LLM layout (disabled) */}
+            {showLegacyModalLayout && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-md">
                     {/* Backdrop */}
                     <div

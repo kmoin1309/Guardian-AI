@@ -4,7 +4,7 @@ import {
   Shield, Upload, AlertTriangle, Activity, TrendingUp, TrendingDown,
   Filter, Search, MoreVertical, CheckCircle, XCircle, FileText,
   LayoutDashboard, LogOut, Database, Lock, Eye, ChevronRight,
-  RefreshCw, Settings, Zap, ArrowUpRight, ChevronLeft, Loader2
+  RefreshCw, ArrowUpRight, ChevronLeft, Loader2, Download
 } from 'lucide-react';
 import api from '../api/axios';
 
@@ -30,6 +30,7 @@ export default function SecureRAG() {
   const [isUploading, setIsUploading] = useState(false);
   const [isReverifying, setIsReverifying] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoaded, setIsLoaded] = useState(false);
   const [, setLoading] = useState(true);
@@ -170,6 +171,109 @@ export default function SecureRAG() {
       alert('Re-verification failed.');
     } finally {
       setIsReverifying(false);
+    }
+  };
+
+  const buildClientAuditReport = () => {
+    const now = new Date().toISOString();
+
+    const totalDocs = stats.total_documents ?? documents.length ?? 0;
+    const poisoned = stats.poisoned_candidates ?? 0;
+    const blocked = stats.blocked_documents ?? 0;
+    const quarantined = stats.quarantined_documents ?? 0;
+    const avgTrust = stats.avg_trust_score ?? 100;
+
+    const activeAnoms = anomalies.filter(
+      (a) => a.status === 'active' || a.status === 'investigating'
+    );
+    const resolvedAnoms = anomalies.filter((a) => a.status === 'resolved');
+
+    const lines = [
+      'Guardian AI – Knowledge Base Integrity Audit Report',
+      `Generated at: ${now}`,
+      `Account: ${user?.email || 'N/A'}`,
+      '',
+      '=== Summary ===',
+      `Total documents indexed: ${totalDocs}`,
+      `Poisoned / high-risk documents: ${poisoned}`,
+      `Blocked documents: ${blocked}`,
+      `Quarantined documents: ${quarantined}`,
+      `Average trust score: ${Number(avgTrust).toFixed(1)}/100`,
+      '',
+      '=== Anomaly Overview ===',
+      `Total anomalies: ${anomalies.length}`,
+      `Active / Investigating: ${activeAnoms.length}`,
+      `Resolved: ${resolvedAnoms.length}`,
+    ];
+
+    if (anomalies.length) {
+      lines.push('');
+      lines.push('=== Anomaly Details ===');
+      anomalies.slice(0, 50).forEach((a) => {
+        lines.push(
+          `- [${a.severity || 'UNKNOWN'}] ${a.type || a.anomaly_type || 'Anomaly'}`,
+          `  Status: ${a.status || 'unknown'}`,
+          `  Detected at: ${a.detected_at || 'N/A'}`,
+          `  Description: ${a.description || 'N/A'}`,
+          ''
+        );
+      });
+    }
+
+    if (totalDocs) {
+      lines.push('=== Notes ===');
+      lines.push(
+        'This report summarizes current RAG document risk posture and anomaly status ' +
+          'for your knowledge base. Use it for security reviews and compliance audits.'
+      );
+    }
+
+    return lines.join('\n');
+  };
+
+  const downloadTextReport = (text) => {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const date = new Date().toISOString().slice(0, 10);
+    link.setAttribute('download', `guardian-ai-kb-audit-${date}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadAuditReport = async () => {
+    setIsDownloadingReport(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Accept: 'text/plain' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch('http://localhost:8000/api/rag/audit-report', { headers });
+      if (!res.ok) {
+        const status = res.status;
+        if (status === 404) {
+          console.warn(
+            'Server audit-report endpoint not found (404). Falling back to client-side report generation.'
+          );
+          const fallbackText = buildClientAuditReport();
+          downloadTextReport(fallbackText);
+          return;
+        }
+        const msg =
+          status === 401
+            ? 'Please sign in to download the audit report.'
+            : `Download failed (${status}). Please try again.`;
+        throw new Error(msg);
+      }
+      const text = await res.text();
+      downloadTextReport(text);
+    } catch (e) {
+      console.error('Audit report download failed', e);
+      alert(e.message || 'Failed to download audit report. Please try again.');
+    } finally {
+      setIsDownloadingReport(false);
     }
   };
 
@@ -339,6 +443,17 @@ export default function SecureRAG() {
                   {isSeeding ? 'Loading Demo...' : 'Load Demo Data'}
                 </button>
               )}
+              <button
+                onClick={handleDownloadAuditReport}
+                disabled={isDownloadingReport}
+                className="px-4 py-2.5 bg-[#111827] hover:bg-[#1c2540] border border-[#1f2937] rounded-lg flex items-center gap-2 text-sm text-gray-200 transition-all duration-200 hover:border-gray-600 disabled:opacity-50">
+                {isDownloadingReport ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 text-gray-400" />
+                )}
+                {isDownloadingReport ? 'Preparing Audit...' : 'Download Audit Report'}
+              </button>
               <button className="px-4 py-2.5 bg-[#141b2d] hover:bg-[#1c2540] border border-[#1f2937] rounded-lg flex items-center gap-2 text-sm text-gray-300 transition-all duration-200 hover:border-gray-600">
                 <Filter className="w-4 h-4 text-gray-500" />
                 Set Thresholds

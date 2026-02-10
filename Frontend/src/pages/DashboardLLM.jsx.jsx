@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react';
 import {
     Shield,
     LayoutDashboard,
-    FileText,
     Settings,
     Zap,
     Target,
     Bell,
-    User,
     AlertCircle,
     ShieldCheck,
     Activity,
@@ -17,10 +15,13 @@ import {
     CheckCircle2,
     XCircle,
     AlertTriangle,
-    RefreshCw
+    RefreshCw,
+    LogOut,
+    ArrowLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import ConnectLLMModal from "../components/ConnectLLMModal";
+import ConnectLLMModal from '../components/ConnectLLMModal';
+
 const DashboardLLM = () => {
     const navigate = useNavigate();
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -57,7 +58,6 @@ const DashboardLLM = () => {
     const [securityEvents, setSecurityEvents] = useState([]);
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const [exportingReport, setExportingReport] = useState(false);
-    const [startingRedTeam, setStartingRedTeam] = useState(false);
     const [testingConnection, setTestingConnection] = useState(false);
 
     // Clock update
@@ -359,34 +359,11 @@ const DashboardLLM = () => {
         setExportingReport(false);
     };
 
-    const handleStartRedTeaming = async () => {
-        if (!llmConnection.connected) {
-            alert('⚠️ Please connect an LLM first to start red teaming');
-            return;
+    const handleLogout = () => {
+        if (confirm('Are you sure you want to logout?')) {
+            localStorage.removeItem('token');
+            navigate('/login');
         }
-
-        setStartingRedTeam(true);
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:8000/api/red-team/start', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                navigate('/red-team');
-            } else {
-                const data = await response.json();
-                alert(`❌ Failed to start red teaming:\n${data.detail}`);
-            }
-        } catch (error) {
-            console.error('Error starting red team:', error);
-            alert('❌ Failed to start red teaming');
-        }
-        setStartingRedTeam(false);
     };
 
     const getCategoryLabel = (threatType, action) => {
@@ -432,50 +409,35 @@ const DashboardLLM = () => {
                 </div>
 
                 <nav className="flex-1 px-4 space-y-1 mt-4">
-                    <button 
-                        onClick={() => navigate('/dashboard/llm')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-600/10 text-blue-400 rounded-lg text-sm font-medium"
-                    >
-                        <LayoutDashboard size={18} />
-                        Dashboard
-                    </button>
-                    <button 
-                        onClick={() => navigate('/firewall')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
-                    >
-                        <Zap size={18} />
-                        Firewall
-                    </button>
-                    <button 
-                        onClick={() => navigate('/audit-logs')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
-                    >
-                        <FileText size={18} />
-                        Audit Logs
-                    </button>
-                    <button 
-                        onClick={() => navigate('/guidelines')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
-                    >
-                        <ShieldCheck size={18} />
-                        Policies
-                    </button>
-                    <button 
-                        onClick={() => navigate('/red-team')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
-                    >
-                        <Target size={18} />
-                        Red Teaming
-                    </button>
+                    {/* Back to Architecture Selection */}
                     <button 
                         onClick={() => navigate('/architecture-selection')}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
+                    >
+                        <ArrowLeft size={18} />
+                        Back to Selection
+                    </button>
+
+                    {/* Settings */}
+                    <button 
+                        onClick={() => navigate('/settings')}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
                     >
                         <Settings size={18} />
                         Settings
                     </button>
+
+                    {/* Logout */}
+                    <button 
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded-lg text-sm font-medium transition-colors"
+                    >
+                        <LogOut size={18} />
+                        Logout
+                    </button>
                 </nav>
 
+                {/* Live/Pause Status */}
                 <div className="px-4 py-3 border-t border-slate-800">
                     <div className="flex items-center justify-between bg-[#121220] rounded-lg p-3 border border-slate-800">
                         <div className="flex items-center gap-2">
@@ -496,14 +458,21 @@ const DashboardLLM = () => {
                     </div>
                 </div>
 
-                <div className="p-4">
-                    <div className="bg-[#121220] rounded-lg p-4 border border-slate-800">
-                        <p className="text-[10px] text-slate-500 uppercase font-bold mb-2 tracking-wider">System Status</p>
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-white font-medium">All Systems Operational</span>
+                {/* Red Team Button (replacing Module Status) */}
+                <div className="p-4 border-t border-slate-800">
+                    <button
+                        onClick={() => navigate('/red-team')}
+                        disabled={!llmConnection.connected}
+                        className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white rounded-lg p-4 font-bold uppercase text-sm tracking-wider transition-all shadow-lg hover:shadow-red-500/20 disabled:shadow-none"
+                    >
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                            <Target size={20} />
+                            <span>Red Teaming</span>
                         </div>
-                    </div>
+                        <div className="text-[10px] opacity-80 normal-case tracking-normal">
+                            {llmConnection.connected ? 'Start Security Testing' : 'Connect LLM First'}
+                        </div>
+                    </button>
                 </div>
             </aside>
 
@@ -552,6 +521,49 @@ const DashboardLLM = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* Module Quick Links */}
+                        <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/50 rounded-lg border border-slate-800">
+                            <button
+                                onClick={() => navigate('/firewall')}
+                                disabled={!llmConnection.connected}
+                                className="text-xs text-slate-400 hover:text-blue-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Firewall
+                            </button>
+                            <span className="text-slate-700">|</span>
+                            <button
+                                onClick={() => navigate('/pii-anonymizer')}
+                                disabled={!llmConnection.connected}
+                                className="text-xs text-slate-400 hover:text-purple-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                PII
+                            </button>
+                            <span className="text-slate-700">|</span>
+                            <button
+                                onClick={() => navigate('/jailbreak-detector')}
+                                disabled={!llmConnection.connected}
+                                className="text-xs text-slate-400 hover:text-orange-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Jailbreak
+                            </button>
+                            <span className="text-slate-700">|</span>
+                            <button
+                                onClick={() => navigate('/adversarial-test')}
+                                disabled={!llmConnection.connected}
+                                className="text-xs text-slate-400 hover:text-red-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Adversarial
+                            </button>
+                            <span className="text-slate-700">|</span>
+                            <button
+                                onClick={() => navigate('/dlp-scanner')}
+                                disabled={!llmConnection.connected}
+                                className="text-xs text-slate-400 hover:text-green-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                DLP
+                            </button>
+                        </div>
+
                         {/* LLM Management Buttons */}
                         {llmConnection.connected ? (
                             <>
@@ -610,38 +622,12 @@ const DashboardLLM = () => {
                             )}
                         </button>
 
-                        {/* Start Red Teaming Button */}
-                        <button
-                            onClick={handleStartRedTeaming}
-                            disabled={startingRedTeam || !llmConnection.connected}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors"
-                            title={!llmConnection.connected ? 'Connect an LLM first' : 'Start red team testing'}
-                        >
-                            {startingRedTeam ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    Starting...
-                                </>
-                            ) : (
-                                <>
-                                    <Play size={16} />
-                                    Start Red Teaming
-                                </>
-                            )}
-                        </button>
-
                         <button className="text-slate-400 hover:text-white relative">
                             <Bell size={20} />
                             {metrics.attacks_blocked > 0 && (
                                 <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0A0A14]"></div>
                             )}
                         </button>
-                        
-                        <div className="flex items-center gap-3 pl-4 border-l border-slate-800">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
-                                <User size={20} className="text-slate-400" />
-                            </div>
-                        </div>
                     </div>
                 </header>
 
@@ -919,7 +905,7 @@ const DashboardLLM = () => {
                                 </div>
                             </button>
 
-                            {/* Module Status Summary */}
+                            {/* Module Count Display */}
                             <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-800/50 rounded-lg p-4 flex flex-col justify-center">
                                 <div className="text-center">
                                     <div className="text-3xl font-black text-white mb-2">

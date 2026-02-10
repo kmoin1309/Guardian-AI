@@ -15,6 +15,8 @@ import RedTeam from "./pages/RedTeam";
 import SupplyChain from "./pages/SupplyChain";
 import ArchitectureSelection from "./pages/ArchitectureSelection";
 import DashboardAgent from "./pages/DashboardAgent";
+import PIIAnonymizer from './pages/PIIAnonymizer';
+
 
 import DashboardLLM from "./pages/DashboardLLM.jsx";
 
@@ -87,6 +89,8 @@ function App() {
           path="/dashboard/agent"
           element={<DashboardAgent />}
         />
+<Route path="/pii-anonymizer" element={<PIIAnonymizer />} />
+
         <Route
           path="/main-dashboard"
           element={<DashboardLLM />}

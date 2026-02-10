@@ -26,6 +26,53 @@ from resource_guard import ResourceGuard
 from supply_chain import SupplyChainScanner
 from Red_team import RedTeamHarness
 
+from pii_scanner import PIIScanner
+
+# Initialize PII Scanner
+pii_scanner = PIIScanner()
+
+# Pydantic Model
+class PIIScanRequest(BaseModel):
+    text: str
+
+@app.post("/api/pii/scan")
+def scan_pii(
+    request: PIIScanRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Scan text for PII and return redacted version"""
+    
+    # Scan for PII
+    scan_result = pii_scanner.scan_response(request.text)
+    
+    # Redact sensitive data
+    redacted_text, redaction_log = pii_scanner.redact_sensitive_data(request.text)
+    
+    # Generate report
+    report = pii_scanner.generate_report(scan_result)
+    
+    return {
+        'has_sensitive_data': scan_result['has_sensitive_data'],
+        'total_findings': scan_result['total_findings'],
+        'risk_score': scan_result['risk_score'],
+        'risk_level': scan_result['risk_level'],
+        'action': scan_result['action'],
+        'findings': scan_result['findings'],
+        'redacted_text': redacted_text,
+        'redaction_log': redaction_log,
+        'report': report
+    }
+
+@app.get("/api/pii/stats")
+def get_pii_stats(current_user: User = Depends(get_current_user)):
+    """Get PII scanner statistics"""
+    # TODO: Implement database tracking
+    return {
+        "total_scans": 0,
+        "scans": 0,
+        "redacted": 0,
+        "most_common_entity": "EMAIL"
+    }
 
 # ==================== Initialize FastAPI FIRST ====================
 app = FastAPI(title="Guardian AI LLM Security API")
@@ -53,10 +100,7 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]  # Add this line
 )
-app.include_router(llm_router, prefix="/api", tags=["LLM Connection"])
-app.include_router(firewall_router, prefix="/api", tags=["Firewall"])
-app.include_router(pii_router, prefix="/api", tags=["PII"])
-app.include_router(dlp_router, prefix="/api", tags=["DLP"])
+
 # ==================== Global Storage ====================
 connected_agents = []
 agent_id_counter = 1

@@ -4,7 +4,6 @@ import api from '../api/axios';
 
 export default function RAGAnomalyMonitor() {
   const [documents, setDocuments] = useState([]);
-  const [anomalies, setAnomalies] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -16,14 +15,13 @@ export default function RAGAnomalyMonitor() {
 
   const fetchData = async () => {
     try {
-      const [docsRes, anomRes, dashRes] = await Promise.all([
+      const [docsRes, , dashRes] = await Promise.all([
         api.get('/rag-anomaly/documents'),
         api.get('/rag-anomaly/anomalies'),
         api.get('/rag-anomaly/anomaly-dashboard')
       ]);
       
       setDocuments(docsRes.data || []);
-      setAnomalies(anomRes.data?.anomalies || []);
       setDashboard(dashRes.data);
     } catch (error) {
       console.error('Failed to fetch data:', error);

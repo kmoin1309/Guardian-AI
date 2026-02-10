@@ -15,6 +15,7 @@ export default function RedTeaming() {
     security_score: 0
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchScenarios();
     fetchStats();

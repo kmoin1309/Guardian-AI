@@ -25,7 +25,7 @@ const SecurityGuidelines = () => {
       why: 'Attacker overrides system prompt with malicious instructions',
       impact: 'Unauthorized actions, data leakage, bypassing security controls',
       defense: ['Input sanitization', 'Prompt isolation', 'Context-aware filtering', 'Rate limiting'],
-      aegisProtection: 'AEGIS Firewall blocks injection patterns in real-time'
+      guardianProtection: 'Guardian AI Firewall blocks injection patterns in real-time'
     },
     {
       id: 'LLM02',
@@ -37,7 +37,7 @@ const SecurityGuidelines = () => {
       why: 'Output contains executable code without sanitization',
       impact: 'XSS attacks, session hijacking, data theft',
       defense: ['Output encoding', 'CSP headers', 'HTML sanitization', 'Safe rendering'],
-      aegisProtection: 'AEGIS DLP Scanner validates and sanitizes all outputs'
+      guardianProtection: 'Guardian AI DLP Scanner validates and sanitizes all outputs'
     },
     {
       id: 'LLM03',
@@ -49,7 +49,7 @@ const SecurityGuidelines = () => {
       why: 'Compromised training data influences model responses',
       impact: 'Biased outputs, backdoors, harmful recommendations',
       defense: ['Data validation', 'Source verification', 'Anomaly detection', 'Content filtering'],
-      aegisProtection: 'AEGIS RAG Guard scans documents before indexing'
+      guardianProtection: 'Guardian AI RAG Guard scans documents before indexing'
     },
     {
       id: 'LLM04',
@@ -61,7 +61,7 @@ const SecurityGuidelines = () => {
       why: 'Excessive resource consumption from long/complex requests',
       impact: 'Service degradation, financial loss, system unavailability',
       defense: ['Rate limiting', 'Token limits', 'Timeout controls', 'Queue management'],
-      aegisProtection: 'AEGIS enforces token budgets and request throttling'
+      guardianProtection: 'Guardian AI enforces token budgets and request throttling'
     },
     {
       id: 'LLM05',
@@ -73,7 +73,7 @@ const SecurityGuidelines = () => {
       why: 'Unverified components may contain backdoors or vulnerabilities',
       impact: 'Data exfiltration, backdoor access, compromised predictions',
       defense: ['Model verification', 'Checksum validation', 'Trusted sources only', 'Sandboxing'],
-      aegisProtection: 'AEGIS validates model signatures and sources'
+      guardianProtection: 'Guardian AI validates model signatures and sources'
     },
     {
       id: 'LLM06',
@@ -85,7 +85,7 @@ const SecurityGuidelines = () => {
       why: 'Model trained on or has access to sensitive information',
       impact: 'Data breaches, privacy violations, credential theft',
       defense: ['PII detection', 'Data redaction', 'Access controls', 'Output filtering'],
-      aegisProtection: 'AEGIS DLP automatically detects and redacts PII/secrets'
+      guardianProtection: 'Guardian AI DLP automatically detects and redacts PII/secrets'
     },
     {
       id: 'LLM07',
@@ -97,7 +97,7 @@ const SecurityGuidelines = () => {
       why: 'Plugins with unrestricted access to system resources',
       impact: 'Remote code execution, data destruction, privilege escalation',
       defense: ['Input validation', 'Least privilege', 'Sandboxing', 'Audit logging'],
-      aegisProtection: 'AEGIS validates plugin inputs and restricts permissions'
+      guardianProtection: 'Guardian AI validates plugin inputs and restricts permissions'
     },
     {
       id: 'LLM08',
@@ -109,7 +109,7 @@ const SecurityGuidelines = () => {
       why: 'Autonomous actions without proper authorization checks',
       impact: 'Financial loss, unauthorized transactions, data manipulation',
       defense: ['Human-in-the-loop', 'Action whitelisting', 'Transaction limits', 'Approval workflows'],
-      aegisProtection: 'AEGIS requires approval for critical operations'
+      guardianProtection: 'Guardian AI requires approval for critical operations'
     },
     {
       id: 'LLM09',
@@ -121,7 +121,7 @@ const SecurityGuidelines = () => {
       why: 'Model hallucinations or incorrect information accepted as fact',
       impact: 'Misinformation, physical harm, financial loss, legal liability',
       defense: ['Confidence scoring', 'Source attribution', 'Disclaimers', 'Human review'],
-      aegisProtection: 'AEGIS displays confidence scores and source citations'
+      guardianProtection: 'Guardian AI displays confidence scores and source citations'
     },
     {
       id: 'LLM10',
@@ -133,7 +133,7 @@ const SecurityGuidelines = () => {
       why: 'Unrestricted API access enables model extraction',
       impact: 'IP theft, competitive disadvantage, financial loss',
       defense: ['Rate limiting', 'API authentication', 'Query monitoring', 'Watermarking'],
-      aegisProtection: 'AEGIS detects suspicious query patterns'
+      guardianProtection: 'Guardian AI detects suspicious query patterns'
     }
   ];
 
@@ -263,7 +263,7 @@ const SecurityGuidelines = () => {
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
             <span className="text-white font-black text-xl">A</span>
           </div>
-          <span className="font-black text-xl text-white">AEGIS</span>
+          <span className="font-black text-xl text-white">Guardian AI</span>
         </div>
 
         <nav className="space-y-2">
@@ -401,8 +401,8 @@ const SecurityGuidelines = () => {
                       </ul>
                       
                       <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                        <div className="text-xs font-bold text-blue-400 mb-1">✓ Protected by AEGIS:</div>
-                        <div className="text-gray-300 text-xs">{item.aegisProtection}</div>
+                        <div className="text-xs font-bold text-blue-400 mb-1">✓ Protected by Guardian AI:</div>
+                        <div className="text-gray-300 text-xs">{item.guardianProtection}</div>
                       </div>
                     </div>
                   </div>

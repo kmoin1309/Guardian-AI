@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const DashboardLLM = () => {
-  const [metrics, setMetrics] = useState(null);
+  const [, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [securityLogs, setSecurityLogs] = useState([]);
+  const [, setSecurityLogs] = useState([]);
 
   useEffect(() => {
     fetchMetrics();

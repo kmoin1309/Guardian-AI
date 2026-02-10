@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shield, Upload, AlertTriangle, Activity, TrendingUp, TrendingDown,
@@ -29,9 +29,10 @@ export default function SecureRAG() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isReverifying, setIsReverifying] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoaded, setIsLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({}); // { anomalyId: true }
 
   // -------- Fetch everything from real APIs --------
@@ -199,6 +200,19 @@ export default function SecureRAG() {
     navigate('/');
   };
 
+  const handleSeedDemo = async () => {
+    setIsSeeding(true);
+    try {
+      await api.post('/rag/seed-demo');
+      await loadAll();
+    } catch (e) {
+      console.error('Seed failed', e);
+      alert('Failed to seed demo data.');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   // -------- Style helpers --------
   const getSeverityStyles = (severity) => {
     switch (severity) {
@@ -306,8 +320,8 @@ export default function SecureRAG() {
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-[28px] font-bold tracking-tight">Knowledge Base Integrity</h1>
                 <span className={`px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border ${stats.system_secure
-                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
-                    : 'bg-red-500/15 text-red-400 border-red-500/20'
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
+                  : 'bg-red-500/15 text-red-400 border-red-500/20'
                   }`}>
                   <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${stats.system_secure ? 'bg-emerald-400' : 'bg-red-400'}`} />
                   {stats.system_secure ? 'SYSTEM SECURE' : 'THREATS DETECTED'}
@@ -316,6 +330,15 @@ export default function SecureRAG() {
               <p className="text-gray-500 text-sm">Real-time monitoring of vector embeddings and RAG retrieval quality.</p>
             </div>
             <div className="flex gap-3">
+              {stats.total_documents === 0 && (
+                <button
+                  onClick={handleSeedDemo}
+                  disabled={isSeeding}
+                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/20 disabled:opacity-50 animate-pulse">
+                  {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                  {isSeeding ? 'Loading Demo...' : 'Load Demo Data'}
+                </button>
+              )}
               <button className="px-4 py-2.5 bg-[#141b2d] hover:bg-[#1c2540] border border-[#1f2937] rounded-lg flex items-center gap-2 text-sm text-gray-300 transition-all duration-200 hover:border-gray-600">
                 <Filter className="w-4 h-4 text-gray-500" />
                 Set Thresholds

@@ -6,8 +6,8 @@ const SupplyChain = () => {
   const [user, setUser] = useState(null);
   const [health, setHealth] = useState(null);
   const [components, setComponents] = useState([]);
-  const [riskFilter, setRiskFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [riskFilter] = useState('all');
+  const [typeFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const SupplyChain = () => {
     try {
       setUser(JSON.parse(userData));
       loadData();
-    } catch (err) {
+    } catch {
       navigate('/login');
     }
   }, [navigate, riskFilter, typeFilter]);

@@ -15,7 +15,8 @@ import RedTeam from "./pages/RedTeam";
 import SupplyChain from "./pages/SupplyChain";
 import ArchitectureSelection from "./pages/ArchitectureSelection";
 import DashboardAgent from "./pages/DashboardAgent";
-import MainDashboard from "./pages/MainDashboard";
+
+import DashboardLLM from "./pages/DashboardLLM.jsx";
 
 function App() {
   return (
@@ -33,10 +34,7 @@ function App() {
           path="/register"
           element={<Register />}
         />
-        <Route
-          path="/dashboard"
-          element={<Dashboard />}
-        />
+      
         <Route
           path="/protection"
           element={<Protection />}
@@ -91,7 +89,7 @@ function App() {
         />
         <Route
           path="/main-dashboard"
-          element={<MainDashboard />}
+          element={<DashboardLLM />}
         />
       </Routes>
     </BrowserRouter>

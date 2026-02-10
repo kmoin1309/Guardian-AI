@@ -53,7 +53,10 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]  # Add this line
 )
-
+app.include_router(llm_router, prefix="/api", tags=["LLM Connection"])
+app.include_router(firewall_router, prefix="/api", tags=["Firewall"])
+app.include_router(pii_router, prefix="/api", tags=["PII"])
+app.include_router(dlp_router, prefix="/api", tags=["DLP"])
 # ==================== Global Storage ====================
 connected_agents = []
 agent_id_counter = 1

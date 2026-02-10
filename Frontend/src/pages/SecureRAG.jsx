@@ -263,7 +263,7 @@ export default function SecureRAG() {
           </div>
           <div>
             <span className="font-black text-base tracking-wide">
-              <span className="text-red-400">Vector</span><span className="text-white">Defense</span>
+              <span className="text-red-400"></span><span className="text-white">Guardian AI</span>
             </span>
             <div className="text-[10px] text-gray-500 -mt-0.5">Security Gateway</div>
           </div>

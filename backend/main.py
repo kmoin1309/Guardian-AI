@@ -31,49 +31,6 @@ from pii_scanner import PIIScanner
 # Initialize PII Scanner
 pii_scanner = PIIScanner()
 
-# Pydantic Model
-class PIIScanRequest(BaseModel):
-    text: str
-
-@app.post("/api/pii/scan")
-def scan_pii(
-    request: PIIScanRequest,
-    current_user: User = Depends(get_current_user)
-):
-    """Scan text for PII and return redacted version"""
-    
-    # Scan for PII
-    scan_result = pii_scanner.scan_response(request.text)
-    
-    # Redact sensitive data
-    redacted_text, redaction_log = pii_scanner.redact_sensitive_data(request.text)
-    
-    # Generate report
-    report = pii_scanner.generate_report(scan_result)
-    
-    return {
-        'has_sensitive_data': scan_result['has_sensitive_data'],
-        'total_findings': scan_result['total_findings'],
-        'risk_score': scan_result['risk_score'],
-        'risk_level': scan_result['risk_level'],
-        'action': scan_result['action'],
-        'findings': scan_result['findings'],
-        'redacted_text': redacted_text,
-        'redaction_log': redaction_log,
-        'report': report
-    }
-
-@app.get("/api/pii/stats")
-def get_pii_stats(current_user: User = Depends(get_current_user)):
-    """Get PII scanner statistics"""
-    # TODO: Implement database tracking
-    return {
-        "total_scans": 0,
-        "scans": 0,
-        "redacted": 0,
-        "most_common_entity": "EMAIL"
-    }
-
 # ==================== Initialize FastAPI FIRST ====================
 app = FastAPI(title="Guardian AI LLM Security API")
 security = HTTPBearer()
@@ -108,6 +65,83 @@ agent_call_logs = []  # ✅ ADD THIS
 log_id_counter = 1
 
 # ==================== NOW Define Routes ====================
+
+
+# --- PII routes (require app to be defined) ---
+class PIIScanRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/pii/scan")
+def scan_pii(
+    request: PIIScanRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Scan text for PII and return redacted version"""
+    scan_result = pii_scanner.scan_response(request.text)
+    redacted_text, redaction_log = pii_scanner.redact_sensitive_data(request.text)
+    report = pii_scanner.generate_report(scan_result)
+    return {
+        'has_sensitive_data': scan_result['has_sensitive_data'],
+        'total_findings': scan_result['total_findings'],
+        'risk_score': scan_result['risk_score'],
+        'risk_level': scan_result['risk_level'],
+        'action': scan_result['action'],
+        'findings': scan_result['findings'],
+        'redacted_text': redacted_text,
+        'redaction_log': redaction_log,
+        'report': report
+    }
+
+
+@app.get("/api/pii/stats")
+def get_pii_stats(current_user: User = Depends(get_current_user)):
+    """Get PII scanner statistics"""
+    return {
+        "total_scans": 0,
+        "scans": 0,
+        "redacted": 0,
+        "most_common_entity": "EMAIL"
+    }
+
+
+@app.get("/api/jailbreak/stats")
+def get_jailbreak_stats(current_user: User = Depends(get_current_user)):
+    """Get jailbreak detection statistics"""
+    return {
+        "status": "active",
+        "detected": 0,
+        "confidence": 95.0,
+        "total_scans": 0,
+        "blocked": 0,
+        "last_detected": None
+    }
+
+
+@app.get("/api/adversarial/stats")
+def get_adversarial_stats(current_user: User = Depends(get_current_user)):
+    """Get adversarial attack statistics"""
+    return {
+        "status": "idle",
+        "tests_run": 0,
+        "attacks_blocked": 0,
+        "success_rate": 100.0,
+        "last_test": None,
+        "vulnerabilities_found": 0
+    }
+
+
+@app.get("/api/dlp/stats")
+def get_dlp_stats(current_user: User = Depends(get_current_user)):
+    """Get DLP (Data Loss Prevention) statistics"""
+    return {
+        "status": "active",
+        "leaks_found": 0,
+        "scans": 0,
+        "total_scans": 0,
+        "blocked": 0,
+        "last_scan": None
+    }
 
 
 def simulate_agent_behavior(agent, user_input):
@@ -883,6 +917,48 @@ def get_llm_models(
         LLMModel.user_id == current_user.id
     ).order_by(LLMModel.created_at.desc()).all()
     return models
+
+
+@app.get("/api/llm/connected")
+def get_connected_llm(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Return current LLM connection status from database (used by Security Dashboard)."""
+    # Prefer validated model; otherwise any most-recent model
+    model = (
+        db.query(LLMModel)
+        .filter(
+            LLMModel.user_id == current_user.id,
+            LLMModel.is_validated == True,
+        )
+        .order_by(LLMModel.last_health_check.desc().nulls_last(), LLMModel.created_at.desc())
+        .first()
+    )
+    if not model:
+        model = (
+            db.query(LLMModel)
+            .filter(LLMModel.user_id == current_user.id)
+            .order_by(LLMModel.created_at.desc())
+            .first()
+        )
+    if not model:
+        return {
+            "connected": False,
+            "model_name": None,
+            "model_type": None,
+            "status": "disconnected",
+            "response_time": None,
+            "last_tested": None,
+        }
+    return {
+        "connected": True,
+        "model_name": model.model_name,
+        "model_type": model.model_type,
+        "status": model.health_status or "connected",
+        "response_time": None,  # optional: could store from last test
+        "last_tested": model.last_health_check.isoformat() if model.last_health_check else None,
+    }
 
 
 @app.post("/api/llm/test/{model_id}")

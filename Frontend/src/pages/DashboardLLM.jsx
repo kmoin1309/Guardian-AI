@@ -24,9 +24,8 @@ import ConnectLLMModal from '../components/ConnectLLMModal';
 
 const DashboardLLM = () => {
     const navigate = useNavigate();
-    const [currentTime, setCurrentTime] = useState(new Date());
     const [isLive, setIsLive] = useState(true);
-    
+
     // Real-time data states
     const [metrics, setMetrics] = useState({
         protected_requests: 0,
@@ -35,7 +34,7 @@ const DashboardLLM = () => {
         security_score: 92,
         success_rate: 100
     });
-    
+
     const [moduleHealth, setModuleHealth] = useState({
         firewall: { status: 'inactive', latency: 0, scans: 0 },
         pii: { status: 'inactive', redacted: 0, scans: 0 },
@@ -43,7 +42,7 @@ const DashboardLLM = () => {
         adversarial: { status: 'idle', tests_run: 0, attacks_blocked: 0 },
         dlp: { status: 'inactive', leaks_found: 0, scans: 0 }
     });
-    
+
     // LLM Connection State
     const [llmConnection, setLlmConnection] = useState({
         connected: false,
@@ -53,12 +52,13 @@ const DashboardLLM = () => {
         response_time: null,
         last_tested: null
     });
-    
+
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [securityEvents, setSecurityEvents] = useState([]);
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const [exportingReport, setExportingReport] = useState(false);
     const [testingConnection, setTestingConnection] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
 
     // Clock update
     useEffect(() => {
@@ -74,7 +74,7 @@ const DashboardLLM = () => {
     // Real-time polling
     useEffect(() => {
         let metricsInterval, logsInterval, moduleInterval, llmInterval;
-        
+
         if (isLive) {
             metricsInterval = setInterval(fetchMetrics, 5000);
             logsInterval = setInterval(fetchSecurityLogs, 8000);
@@ -102,31 +102,31 @@ const DashboardLLM = () => {
     const fetchMetrics = async () => {
         try {
             const token = localStorage.getItem('token');
-            
+
             const firewallRes = await fetch('http://localhost:8000/api/firewall/history', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             const metricsRes = await fetch('http://localhost:8000/api/dashboard/metrics', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (firewallRes.ok) {
                 const firewallData = await firewallRes.json();
-                
+
                 const totalScans = firewallData.length;
                 const blockedAttacks = firewallData.filter(log => log.action === 'BLOCK').length;
                 const costSaved = blockedAttacks * 12.5;
-                const successRate = totalScans > 0 
+                const successRate = totalScans > 0
                     ? ((blockedAttacks / totalScans) * 100).toFixed(1)
                     : 100;
-                
+
                 let securityScore = 92;
                 if (metricsRes.ok) {
                     const metricsData = await metricsRes.json();
                     securityScore = metricsData.security_score || 92;
                 }
-                
+
                 setMetrics({
                     protected_requests: totalScans,
                     attacks_blocked: blockedAttacks,
@@ -134,7 +134,7 @@ const DashboardLLM = () => {
                     security_score: securityScore,
                     success_rate: successRate
                 });
-                
+
                 setLastUpdated(new Date());
             }
         } catch (error) {
@@ -148,14 +148,14 @@ const DashboardLLM = () => {
             const response = await fetch('http://localhost:8000/api/firewall/history?limit=5', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
                 const transformedLogs = data.map(log => ({
-                    time: new Date(log.timestamp).toLocaleTimeString('en-US', { 
-                        hour12: false, 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
+                    time: new Date(log.timestamp).toLocaleTimeString('en-US', {
+                        hour12: false,
+                        hour: '2-digit',
+                        minute: '2-digit',
                         second: '2-digit'
                     }),
                     snippet: `"${log.prompt?.substring(0, 50)}..."` || 'N/A',
@@ -174,7 +174,7 @@ const DashboardLLM = () => {
     const fetchModuleHealth = async () => {
         try {
             const token = localStorage.getItem('token');
-            
+
             const [firewallRes, piiRes, jailbreakRes, adversarialRes, dlpRes] = await Promise.all([
                 fetch('http://localhost:8000/api/firewall/history', {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -192,33 +192,33 @@ const DashboardLLM = () => {
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
             ]);
-            
+
             let firewallScans = 0;
             if (firewallRes.ok) {
                 const firewallData = await firewallRes.json();
                 firewallScans = firewallData.length;
             }
-            
+
             let piiStats = { redacted: 0, scans: 0 };
             if (piiRes.ok) {
                 piiStats = await piiRes.json();
             }
-            
+
             let jailbreakStats = { detected: 0, confidence: 0, total_detections: 0 };
             if (jailbreakRes.ok) {
                 jailbreakStats = await jailbreakRes.json();
             }
-            
+
             let adversarialStats = { tests_run: 0, attacks_blocked: 0 };
             if (adversarialRes.ok) {
                 adversarialStats = await adversarialRes.json();
             }
-            
+
             let dlpStats = { leaks_found: 0, scans: 0 };
             if (dlpRes.ok) {
                 dlpStats = await dlpRes.json();
             }
-            
+
             setModuleHealth({
                 firewall: {
                     status: firewallScans > 0 ? 'active' : 'inactive',
@@ -257,7 +257,7 @@ const DashboardLLM = () => {
             const response = await fetch('http://localhost:8000/api/llm/connected', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
                 setLlmConnection(data);
@@ -275,7 +275,7 @@ const DashboardLLM = () => {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             const data = await response.json();
             if (data.success) {
                 alert(`✅ Connection test successful!\nResponse Time: ${data.response_time}ms`);
@@ -293,14 +293,14 @@ const DashboardLLM = () => {
         if (!confirm('⚠️ Are you sure you want to disconnect the LLM?\n\nThis will disable:\n• Firewall scanning\n• Red teaming\n• All security modules')) {
             return;
         }
-        
+
         try {
             const token = localStorage.getItem('token');
             const response = await fetch('http://localhost:8000/api/llm/disconnect', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (response.ok) {
                 setLlmConnection({
                     connected: false,
@@ -325,7 +325,7 @@ const DashboardLLM = () => {
             const token = localStorage.getItem('token');
             const response = await fetch('http://localhost:8000/api/dashboard/export-report', {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
@@ -337,7 +337,7 @@ const DashboardLLM = () => {
                     timestamp: new Date().toISOString()
                 })
             });
-            
+
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -410,7 +410,7 @@ const DashboardLLM = () => {
 
                 <nav className="flex-1 px-4 space-y-1 mt-4">
                     {/* Back to Architecture Selection */}
-                    <button 
+                    <button
                         onClick={() => navigate('/architecture-selection')}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
                     >
@@ -419,7 +419,7 @@ const DashboardLLM = () => {
                     </button>
 
                     {/* Settings */}
-                    <button 
+                    <button
                         onClick={() => navigate('/settings')}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
                     >
@@ -428,7 +428,7 @@ const DashboardLLM = () => {
                     </button>
 
                     {/* Logout */}
-                    <button 
+                    <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded-lg text-sm font-medium transition-colors"
                     >
@@ -482,13 +482,12 @@ const DashboardLLM = () => {
                 <header className="h-16 border-b border-slate-800 bg-[#0A0A14]/50 backdrop-blur-md flex items-center justify-between px-8">
                     <div className="flex items-center gap-4">
                         <h2 className="text-white font-bold text-lg">Security Dashboard</h2>
-                        
+
                         {/* LLM Connection Status */}
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
-                            llmConnection.connected 
-                                ? 'bg-emerald-900/20 border-emerald-800' 
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${llmConnection.connected
+                                ? 'bg-emerald-900/20 border-emerald-800'
                                 : 'bg-red-900/20 border-red-800'
-                        }`}>
+                            }`}>
                             <Plug size={14} className={llmConnection.connected ? 'text-emerald-400' : 'text-red-400'} />
                             <span className="text-xs text-slate-400">Model:</span>
                             {llmConnection.connected ? (
@@ -647,7 +646,7 @@ const DashboardLLM = () => {
                                     </p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setShowConnectModal(true)}
                                 className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-2 rounded-lg text-sm font-bold transition-colors"
                             >
@@ -670,7 +669,7 @@ const DashboardLLM = () => {
                                     </p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => navigate('/audit-logs')}
                                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
                             >
@@ -719,17 +718,17 @@ const DashboardLLM = () => {
                             <div className="absolute top-6 right-6 w-12 h-12">
                                 <svg className="w-full h-full transform -rotate-90">
                                     <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-800" />
-                                    <circle 
-                                        cx="24" 
-                                        cy="24" 
-                                        r="20" 
-                                        stroke="currentColor" 
-                                        strokeWidth="4" 
-                                        fill="transparent" 
-                                        strokeDasharray="125.6" 
-                                        strokeDashoffset={125.6 - (125.6 * metrics.security_score / 100)} 
-                                        className="text-green-500 transition-all duration-1000" 
-                                        strokeLinecap="round" 
+                                    <circle
+                                        cx="24"
+                                        cy="24"
+                                        r="20"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                        fill="transparent"
+                                        strokeDasharray="125.6"
+                                        strokeDashoffset={125.6 - (125.6 * metrics.security_score / 100)}
+                                        className="text-green-500 transition-all duration-1000"
+                                        strokeLinecap="round"
                                     />
                                 </svg>
                                 <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
@@ -753,10 +752,10 @@ const DashboardLLM = () => {
                                 Refresh
                             </button>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {/* 1. Prompt Firewall */}
-                            <button 
+                            <button
                                 onClick={() => navigate('/firewall')}
                                 disabled={!llmConnection.connected}
                                 className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-blue-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
@@ -786,7 +785,7 @@ const DashboardLLM = () => {
                             </button>
 
                             {/* 2. PII Detection */}
-                            <button 
+                            <button
                                 onClick={() => navigate('/pii-anonymizer')}
                                 disabled={!llmConnection.connected}
                                 className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-purple-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
@@ -816,7 +815,7 @@ const DashboardLLM = () => {
                             </button>
 
                             {/* 3. Jailbreak Detection */}
-                            <button 
+                            <button
                                 onClick={() => navigate('/jailbreak-detector')}
                                 disabled={!llmConnection.connected}
                                 className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-orange-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
@@ -846,7 +845,7 @@ const DashboardLLM = () => {
                             </button>
 
                             {/* 4. Adversarial Testing */}
-                            <button 
+                            <button
                                 onClick={() => navigate('/adversarial-test')}
                                 disabled={!llmConnection.connected}
                                 className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-red-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
@@ -876,7 +875,7 @@ const DashboardLLM = () => {
                             </button>
 
                             {/* 5. DLP Scanner */}
-                            <button 
+                            <button
                                 onClick={() => navigate('/dlp-scanner')}
                                 disabled={!llmConnection.connected}
                                 className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-green-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
@@ -916,7 +915,7 @@ const DashboardLLM = () => {
                                     </div>
                                     <div className="flex justify-center gap-1 mb-3">
                                         {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.adversarial.status, moduleHealth.dlp.status].map((status, i) => (
-                                            <div 
+                                            <div
                                                 key={i}
                                                 className={`w-2 h-2 rounded-full ${status === 'active' ? 'bg-emerald-500' : 'bg-slate-600'}`}
                                                 title={`Module ${i + 1}: ${status}`}
@@ -976,23 +975,21 @@ const DashboardLLM = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-1.5">
-                                                        <div className={`w-1 h-1 rounded-full ${
-                                                            event.action === 'PASS' ? 'bg-emerald-500' : 
-                                                            event.action === 'TRANSFORM' ? 'bg-orange-500' : 
-                                                            'bg-red-500'
-                                                        }`}></div>
-                                                        <span className={`font-black tracking-widest text-[10px] ${
-                                                            event.action === 'PASS' ? 'text-emerald-500' : 
-                                                            event.action === 'TRANSFORM' ? 'text-orange-500' : 
-                                                            'text-red-500'
-                                                        }`}>
+                                                        <div className={`w-1 h-1 rounded-full ${event.action === 'PASS' ? 'bg-emerald-500' :
+                                                                event.action === 'TRANSFORM' ? 'bg-orange-500' :
+                                                                    'bg-red-500'
+                                                            }`}></div>
+                                                        <span className={`font-black tracking-widest text-[10px] ${event.action === 'PASS' ? 'text-emerald-500' :
+                                                                event.action === 'TRANSFORM' ? 'text-orange-500' :
+                                                                    'text-red-500'
+                                                            }`}>
                                                             {event.action}
                                                         </span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 font-bold text-white">{event.conf}</td>
                                                 <td className="px-6 py-4">
-                                                    <button 
+                                                    <button
                                                         onClick={() => navigate('/audit-logs')}
                                                         className="text-blue-500 font-bold hover:underline"
                                                     >
@@ -1008,14 +1005,14 @@ const DashboardLLM = () => {
                                                     <ShieldCheck className="w-12 h-12 text-slate-600" />
                                                     <div className="text-slate-500">No security events detected yet</div>
                                                     {llmConnection.connected ? (
-                                                        <button 
+                                                        <button
                                                             onClick={() => navigate('/firewall')}
                                                             className="text-blue-400 hover:text-blue-300 text-sm underline"
                                                         >
                                                             Scan a prompt in the Firewall to start
                                                         </button>
                                                     ) : (
-                                                        <button 
+                                                        <button
                                                             onClick={() => setShowConnectModal(true)}
                                                             className="text-yellow-400 hover:text-yellow-300 text-sm underline"
                                                         >
@@ -1034,7 +1031,7 @@ const DashboardLLM = () => {
             </main>
 
             {/* Connect LLM Modal */}
-            <ConnectLLMModal 
+            <ConnectLLMModal
                 isOpen={showConnectModal}
                 onClose={() => setShowConnectModal(false)}
                 onSuccess={() => {

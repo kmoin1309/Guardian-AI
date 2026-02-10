@@ -1,0 +1,57 @@
+# ========================
+# Backend (Python/FastAPI)
+# ========================
+
+# ----- Python Bytecode -----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ----- Virtual Environments -----
+venv/
+.venv/
+env/
+ENV/
+
+# ----- Environment Variables -----
+.env
+.env.local
+.env.*
+
+# ----- Database Files -----
+*.db
+*.sqlite
+*.sqlite3
+
+# ----- Distribution / Build -----
+dist/
+build/
+*.egg-info/
+*.egg
+*.whl
+
+# ----- Logs -----
+*.log
+pip-log.txt
+
+# ----- Testing -----
+.pytest_cache/
+htmlcov/
+.coverage
+.tox/
+
+# ----- IDE -----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ----- OS -----
+.DS_Store
+Thumbs.db
+
+# ----- Secrets -----
+*.pem
+*.key
+secrets/

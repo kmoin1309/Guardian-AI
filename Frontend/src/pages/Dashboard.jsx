@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ConnectLLMModal from "../components/ConnectLLMModal";
 import SecurityGuidelinesModal from "../components/SecurityGuidelinesModal";
+import SubtleLoader from "../components/SubtleLoader";
+import { DashboardSkeleton } from "../components/SkeletonLoader";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -155,11 +157,7 @@ const Dashboard = () => {
   };
 
   if (!user || loading)
-    return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-        <div className="text-white text-xl">Loading dashboard...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
 
   return (
     <div className="min-h-screen bg-[#020617]">
@@ -300,11 +298,10 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <div
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        conn.health_status === "healthy"
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-red-500/20 text-red-400"
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${conn.health_status === "healthy"
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-red-500/20 text-red-400"
+                        }`}
                     >
                       {conn.health_status === "healthy"
                         ? "✓ Healthy"
@@ -518,21 +515,21 @@ const Dashboard = () => {
                   </span>
                 </div>
               )) || (
-                <>
-                  <div className="flex justify-between text-gray-400">
-                    <span>LLM01: Prompt Injection</span>
-                    <span className="text-green-400">✓</span>
-                  </div>
-                  <div className="flex justify-between text-gray-400">
-                    <span>LLM02: Insecure Output</span>
-                    <span className="text-green-400">✓</span>
-                  </div>
-                  <div className="flex justify-between text-gray-400">
-                    <span>LLM03: Data Poisoning</span>
-                    <span className="text-yellow-400">⚠</span>
-                  </div>
-                </>
-              )}
+                  <>
+                    <div className="flex justify-between text-gray-400">
+                      <span>LLM01: Prompt Injection</span>
+                      <span className="text-green-400">✓</span>
+                    </div>
+                    <div className="flex justify-between text-gray-400">
+                      <span>LLM02: Insecure Output</span>
+                      <span className="text-green-400">✓</span>
+                    </div>
+                    <div className="flex justify-between text-gray-400">
+                      <span>LLM03: Data Poisoning</span>
+                      <span className="text-yellow-400">⚠</span>
+                    </div>
+                  </>
+                )}
             </div>
           </div>
 
@@ -590,47 +587,47 @@ const Dashboard = () => {
                   <div className="text-gray-500 text-xs">{event.time}</div>
                 </div>
               )) || (
-                <>
-                  <div className="flex items-start gap-3 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
-                    <span className="text-red-400">⚠️</span>
-                    <div className="flex-1">
-                      <div className="text-white text-sm font-bold">
-                        Potential jailbreak detected
+                  <>
+                    <div className="flex items-start gap-3 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
+                      <span className="text-red-400">⚠️</span>
+                      <div className="flex-1">
+                        <div className="text-white text-sm font-bold">
+                          Potential jailbreak detected
+                        </div>
+                        <div className="text-gray-400 text-xs">
+                          Blocked user request
+                        </div>
                       </div>
-                      <div className="text-gray-400 text-xs">
-                        Blocked user request
-                      </div>
+                      <div className="text-gray-500 text-xs">Now</div>
                     </div>
-                    <div className="text-gray-500 text-xs">Now</div>
-                  </div>
 
-                  <div className="flex items-start gap-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
-                    <span className="text-green-400">✓</span>
-                    <div className="flex-1">
-                      <div className="text-white text-sm font-bold">
-                        Sensitive data redaction applied
+                    <div className="flex items-start gap-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                      <span className="text-green-400">✓</span>
+                      <div className="flex-1">
+                        <div className="text-white text-sm font-bold">
+                          Sensitive data redaction applied
+                        </div>
+                        <div className="text-gray-400 text-xs">
+                          Masked 3 PII instances
+                        </div>
                       </div>
-                      <div className="text-gray-400 text-xs">
-                        Masked 3 PII instances
-                      </div>
+                      <div className="text-gray-500 text-xs">2m</div>
                     </div>
-                    <div className="text-gray-500 text-xs">2m</div>
-                  </div>
 
-                  <div className="flex items-start gap-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
-                    <span className="text-blue-400">ℹ️</span>
-                    <div className="flex-1">
-                      <div className="text-white text-sm font-bold">
-                        New RAG knowledge base indexed
+                    <div className="flex items-start gap-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
+                      <span className="text-blue-400">ℹ️</span>
+                      <div className="flex-1">
+                        <div className="text-white text-sm font-bold">
+                          New RAG knowledge base indexed
+                        </div>
+                        <div className="text-gray-400 text-xs">
+                          1,245 vectors added
+                        </div>
                       </div>
-                      <div className="text-gray-400 text-xs">
-                        1,245 vectors added
-                      </div>
+                      <div className="text-gray-500 text-xs">15m</div>
                     </div>
-                    <div className="text-gray-500 text-xs">15m</div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
             </div>
           </div>
         </div>

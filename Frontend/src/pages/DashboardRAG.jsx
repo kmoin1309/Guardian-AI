@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shield, Upload, AlertTriangle, Activity, TrendingUp, TrendingDown,
-  Filter, Search, MoreVertical, CheckCircle, XCircle, FileText,
-  LayoutDashboard, LogOut, Database, Lock, Eye, ChevronRight,
+  Filter, Search, CheckCircle, XCircle, FileText,
+  Database, Lock, ChevronRight, ArrowLeft,
   RefreshCw, ArrowUpRight, ChevronLeft, Loader2
 } from 'lucide-react';
 import api from '../api/axios';
@@ -193,11 +193,7 @@ export default function SecureRAG() {
     loadDocuments(newPage, searchTerm);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+
 
   const handleSetThresholds = () => {
     const saved = JSON.parse(localStorage.getItem('ragThresholds') || '{}');
@@ -270,75 +266,42 @@ export default function SecureRAG() {
     }
   };
 
-  const sidebarLinks = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', active: false },
-    { label: 'KB Integrity', icon: Database, path: '/secure-rag', active: true },
-    { label: 'Prompt Injection', icon: Shield, path: '/firewall', active: false },
-    { label: 'Model Shield', icon: Lock, path: '/supply-chain', active: false },
-    { label: 'Compliance', icon: Eye, path: '/audit-logs', active: false },
-  ];
-
   return (
-    <div className={`min-h-screen bg-[#0a0e1a] text-white flex transition-opacity duration-700 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`min-h-screen bg-[#0a0e1a] text-white transition-opacity duration-700 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
 
-      {/* ─── Sidebar ─── */}
-      <aside className="fixed left-0 top-0 h-screen w-[250px] bg-[#0d1221] border-r border-[#1a2035] flex flex-col z-50">
-        <div className="px-6 py-6 flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-red-500 to-red-700 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20">
-            <Shield className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <span className="font-black text-base tracking-wide">
-              <span className="text-red-400">Guardian</span><span className="text-white"> AI</span>
-            </span>
-            <div className="text-[10px] text-gray-500 -mt-0.5">Product Security Platform</div>
-          </div>
-        </div>
-
-        <nav className="flex-1 px-4 mt-2 space-y-1">
-          {sidebarLinks.map((link) => (
-            <button key={link.label} onClick={() => navigate(link.path)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${link.active ? 'bg-gradient-to-r from-blue-600/20 to-blue-400/5 text-blue-400 border border-blue-500/20 shadow-lg shadow-blue-500/5' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}>
-              <link.icon className={`w-[18px] h-[18px] ${link.active ? 'text-blue-400' : 'text-gray-600'}`} />
-              <span>{link.label}</span>
-              {link.active && <div className="ml-auto w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />}
+      {/* ─── Top Header Bar ─── */}
+      <header className="sticky top-0 z-50 bg-[#0d1221]/95 backdrop-blur-md border-b border-[#1a2035]">
+        <div className="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/architecture-selection')}
+              className="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg text-sm font-medium transition-all duration-200"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
             </button>
-          ))}
-        </nav>
-
-        <div className="px-4 pb-6 space-y-3">
-          <div className="bg-[#111827]/80 rounded-xl p-4 border border-[#1f2937]">
+            <div className="w-px h-8 bg-[#1a2035]" />
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-emerald-500/20">
-                {user.username?.charAt(0)?.toUpperCase() || 'U'}
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <Shield className="w-5 h-5 text-white" />
               </div>
-              <div className="overflow-hidden">
-                <div className="text-white font-semibold text-sm truncate">{user.username}</div>
-                <div className="text-gray-500 text-[11px] truncate">{user.email}</div>
+              <div>
+                <span className="font-black text-base tracking-wide text-white">Guardian AI</span>
+                <div className="text-[10px] text-gray-500 -mt-0.5">RAG Security Platform</div>
               </div>
             </div>
           </div>
-          <button onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 text-red-400/80 hover:text-red-400 hover:bg-red-500/10 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200">
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </button>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span>Knowledge Base</span>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-blue-400 font-medium">Integrity</span>
+          </div>
         </div>
-      </aside>
+      </header>
 
       {/* ─── Main Content ─── */}
-      <div className="ml-[250px] flex-1 min-h-screen">
+      <div className="flex-1 min-h-screen">
         <div className="max-w-[1400px] mx-auto px-8 py-6">
-
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
-            <span className="hover:text-gray-300 cursor-pointer transition" onClick={() => navigate('/dashboard')}>Dashboard</span>
-            <ChevronRight className="w-3 h-3" />
-            <span className="hover:text-gray-300 cursor-pointer transition">Knowledge Base</span>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-blue-400">Integrity</span>
-          </div>
 
           {/* Header */}
           <div className="flex items-start justify-between mb-8">
@@ -346,8 +309,8 @@ export default function SecureRAG() {
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-[28px] font-bold tracking-tight">Knowledge Base Integrity</h1>
                 <span className={`px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border ${stats.system_secure
-                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
-                    : 'bg-red-500/15 text-red-400 border-red-500/20'
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
+                  : 'bg-red-500/15 text-red-400 border-red-500/20'
                   }`}>
                   <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${stats.system_secure ? 'bg-emerald-400' : 'bg-red-400'}`} />
                   {stats.system_secure ? 'SYSTEM SECURE' : 'THREATS DETECTED'}
@@ -598,9 +561,7 @@ export default function SecureRAG() {
                     onChange={(e) => handleSearch(e.target.value)}
                     className="pl-9 pr-4 py-2 bg-[#0a0e1a] border border-[#1f2937] rounded-lg text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors w-52" />
                 </div>
-                <button className="px-3 py-2 bg-[#0a0e1a] border border-[#1f2937] rounded-lg flex items-center gap-2 text-sm text-gray-400 hover:border-gray-600 transition-colors">
-                  <Filter className="w-3.5 h-3.5" /> Filter
-                </button>
+
               </div>
             </div>
 
@@ -668,9 +629,7 @@ export default function SecureRAG() {
                                 className="p-1.5 hover:bg-red-500/10 rounded-md text-gray-600 hover:text-red-400 transition-colors" title="Delete">
                                 <XCircle className="w-4 h-4" />
                               </button>
-                              <button className="p-1.5 hover:bg-[#1a2035] rounded-md text-gray-600 hover:text-gray-300 transition-colors" title="More">
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
+
                             </div>
                           </td>
                         </tr>

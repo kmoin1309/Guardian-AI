@@ -1,32 +1,58 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 
 const Hero = () => {
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.3,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { duration: 0.5, ease: "easeOut" },
+    },
+  };
+
   return (
     <section className="max-w-7xl mx-auto px-6 py-16 md:py-24">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
+      >
         {/* Left Content */}
         <div className="space-y-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full">
+          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full">
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
             <span className="text-blue-400 font-semibold text-xs uppercase tracking-wider">
               AI Security Testing Platform
             </span>
-          </div>
+          </motion.div>
 
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-black leading-[1.1]">
+          <motion.h1 variants={itemVariants} className="text-5xl md:text-6xl lg:text-7xl font-black leading-[1.1]">
             Secure Your <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600">
               AI Frontier
             </span>
-          </h1>
+          </motion.h1>
 
-          <p className="text-gray-400 text-lg md:text-xl leading-relaxed max-w-xl">
+          <motion.p variants={itemVariants} className="text-gray-400 text-lg md:text-xl leading-relaxed max-w-xl">
             Automated security scanning for LLMs, RAG systems, and AI agents.
             Test for prompt injections, data leakage, and OWASP Top 10
             vulnerabilities.
-          </p>
+          </motion.p>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-4">
+          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-4">
             <Link
               to="/dashboard"
               className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200 shadow-lg shadow-blue-900/50 hover:shadow-xl hover:shadow-blue-900/70"
@@ -36,9 +62,9 @@ const Hero = () => {
             <button className="border-2 border-gray-700 hover:border-gray-600 hover:bg-gray-900/50 text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200">
               View Demo
             </button>
-          </div>
+          </motion.div>
 
-          <div className="flex items-center gap-3 pt-6">
+          <motion.div variants={itemVariants} className="flex items-center gap-3 pt-6">
             <div className="flex -space-x-3">
               {[1, 2, 3, 4].map((i) => (
                 <div
@@ -53,11 +79,16 @@ const Hero = () => {
               Trusted by <span className="text-white font-bold">200+</span> AI
               teams
             </p>
-          </div>
+          </motion.div>
         </div>
 
         {/* Right Visual */}
-        <div className="relative hidden lg:block">
+        <motion.div
+          initial={{ x: 50, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="relative hidden lg:block"
+        >
           <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 to-purple-600/20 blur-3xl"></div>
           <div className="relative bg-gradient-to-br from-gray-900 via-[#0f172a] to-gray-900 rounded-2xl border border-gray-800 p-8 shadow-2xl">
             {/* Mock Terminal */}
@@ -75,23 +106,42 @@ const Hero = () => {
                     Guardian AI scan --endpoint https://api.myapp.com
                   </span>
                 </div>
-                <div className="text-blue-400">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.2, duration: 0.5 }}
+                  className="text-blue-400"
+                >
                   ⚡ Running security tests...
-                </div>
-                <div className="text-yellow-500">
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 2.0, duration: 0.5 }}
+                  className="text-yellow-500"
+                >
                   ⚠️ Found 3 vulnerabilities
-                </div>
-                <div className="flex items-center gap-2">
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 2.8, duration: 0.5 }}
+                  className="flex items-center gap-2"
+                >
                   <span className="text-red-500">✗</span>
                   <span className="text-gray-400">
                     Prompt injection detected
                   </span>
-                </div>
+                </motion.div>
               </div>
             </div>
 
             {/* Floating Badge */}
-            <div className="absolute -bottom-4 -right-4 bg-blue-600 rounded-xl p-4 shadow-2xl shadow-blue-900/50 border border-blue-500">
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -bottom-4 -right-4 bg-blue-600 rounded-xl p-4 shadow-2xl shadow-blue-900/50 border border-blue-500"
+            >
               <div className="flex items-center gap-3">
                 <div className="text-3xl">🛡️</div>
                 <div>
@@ -99,10 +149,10 @@ const Hero = () => {
                   <div className="text-blue-200 text-xs">OWASP Verified</div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </section>
   );
 };

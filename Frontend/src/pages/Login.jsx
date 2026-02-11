@@ -67,10 +67,10 @@ const Login = () => {
         {/* Logo Section */}
         <div className="flex flex-col items-center mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-[#3B82F6] rounded-lg flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-blue-500/20">
-              A
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Shield className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-white">
+            <h1 className="text-4xl font-black tracking-tight text-white">
               Guardian AI
             </h1>
           </div>
@@ -190,15 +190,15 @@ const Login = () => {
           </Link>
         </p>
 
-          {/* Bottom Security Badge */}
-          <div className="mt-10 flex items-center justify-center gap-3 text-[10px] font-semibold tracking-widest text-slate-600 uppercase">
-            <div className="flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3" />
-              <span>End-to-End Encrypted</span>
-            </div>
-            <div className="w-1 h-1 bg-slate-600 rounded-full"></div>
-            <div>Guardian AI Secure 2.0</div>
+        {/* Bottom Security Badge */}
+        <div className="mt-10 flex items-center justify-center gap-3 text-[10px] font-semibold tracking-widest text-slate-600 uppercase">
+          <div className="flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3" />
+            <span>End-to-End Encrypted</span>
           </div>
+          <div className="w-1 h-1 bg-slate-600 rounded-full"></div>
+          <div>Guardian AI Secure 2.0</div>
+        </div>
       </div>
     </div>
   );

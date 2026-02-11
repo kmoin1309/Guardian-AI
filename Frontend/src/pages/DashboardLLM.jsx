@@ -39,7 +39,6 @@ const DashboardLLM = () => {
         firewall: { status: 'inactive', latency: 0, scans: 0 },
         pii: { status: 'inactive', redacted: 0, scans: 0 },
         jailbreak: { status: 'inactive', detected: 0, confidence: 0 },
-        adversarial: { status: 'idle', tests_run: 0, attacks_blocked: 0 },
         dlp: { status: 'inactive', leaks_found: 0, scans: 0 }
     });
 
@@ -152,16 +151,16 @@ const DashboardLLM = () => {
             if (response.ok) {
                 const data = await response.json();
                 const transformedLogs = data.map(log => ({
-                    time: new Date(log.timestamp).toLocaleTimeString('en-US', {
+                    time: new Date(log.created_at).toLocaleTimeString('en-US', {
                         hour12: false,
                         hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit'
                     }),
                     snippet: `"${log.prompt?.substring(0, 50)}..."` || 'N/A',
-                    category: getCategoryLabel(log.threat_type, log.action),
+                    category: getCategoryLabel(null, log.action),
                     action: log.action || 'PASSED',
-                    conf: `${log.confidence || 100}%`,
+                    conf: `${log.risk_score || 0}%`,
                     color: getColorClass(log.action)
                 }));
                 setSecurityEvents(transformedLogs);
@@ -175,7 +174,10 @@ const DashboardLLM = () => {
         try {
             const token = localStorage.getItem('token');
 
-            const [firewallRes, piiRes, jailbreakRes, adversarialRes, dlpRes] = await Promise.all([
+            // Check if LLM is connected first
+            const llmConnected = llmConnection.connected;
+
+            const [firewallRes, piiRes, jailbreakRes, dlpRes] = await Promise.all([
                 fetch('http://localhost:8000/api/firewall/history', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
@@ -183,9 +185,6 @@ const DashboardLLM = () => {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
                 fetch('http://localhost:8000/api/jailbreak/stats', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                }),
-                fetch('http://localhost:8000/api/adversarial/stats', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
                 fetch('http://localhost:8000/api/dlp/stats', {
@@ -204,14 +203,9 @@ const DashboardLLM = () => {
                 piiStats = await piiRes.json();
             }
 
-            let jailbreakStats = { detected: 0, confidence: 0, total_detections: 0 };
+            let jailbreakStats = { detected: 0, confidence: 0, total_detections: 0, jailbreaks_found: 0, avg_confidence: 0 };
             if (jailbreakRes.ok) {
                 jailbreakStats = await jailbreakRes.json();
-            }
-
-            let adversarialStats = { tests_run: 0, attacks_blocked: 0 };
-            if (adversarialRes.ok) {
-                adversarialStats = await adversarialRes.json();
             }
 
             let dlpStats = { leaks_found: 0, scans: 0 };
@@ -219,29 +213,25 @@ const DashboardLLM = () => {
                 dlpStats = await dlpRes.json();
             }
 
+            // ✅ FIX: Modules are active if LLM is connected, regardless of usage stats
             setModuleHealth({
                 firewall: {
-                    status: firewallScans > 0 ? 'active' : 'inactive',
+                    status: llmConnected ? 'active' : 'inactive',
                     latency: 14,
                     scans: firewallScans
                 },
                 pii: {
-                    status: piiStats.scans > 0 ? 'active' : 'inactive',
+                    status: llmConnected ? 'active' : 'inactive',
                     redacted: piiStats.redacted || 0,
                     scans: piiStats.scans || 0
                 },
                 jailbreak: {
-                    status: jailbreakStats.total_detections > 0 ? 'active' : 'inactive',
+                    status: llmConnected ? 'active' : 'inactive',
                     detected: jailbreakStats.jailbreaks_found || 0,
                     confidence: jailbreakStats.avg_confidence || 0
                 },
-                adversarial: {
-                    status: adversarialStats.tests_run > 0 ? 'active' : 'idle',
-                    tests_run: adversarialStats.tests_run || 0,
-                    attacks_blocked: adversarialStats.attacks_blocked || 0
-                },
                 dlp: {
-                    status: dlpStats.scans > 0 ? 'active' : 'inactive',
+                    status: llmConnected ? 'active' : 'inactive',
                     leaks_found: dlpStats.leaks_found || 0,
                     scans: dlpStats.scans || 0
                 }
@@ -261,6 +251,9 @@ const DashboardLLM = () => {
             if (response.ok) {
                 const data = await response.json();
                 setLlmConnection(data);
+                
+                // Refresh module health when LLM connection changes
+                fetchModuleHealth();
             }
         } catch (error) {
             console.error('Error fetching LLM connection:', error);
@@ -308,6 +301,7 @@ const DashboardLLM = () => {
                     status: 'disconnected'
                 });
                 alert('✅ LLM disconnected successfully');
+                fetchModuleHealth(); // Refresh to show inactive status
             }
         } catch (error) {
             alert('❌ Failed to disconnect LLM');
@@ -339,11 +333,12 @@ const DashboardLLM = () => {
             });
 
             if (response.ok) {
-                const blob = await response.blob();
+                const data = await response.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `guardian-ai-report-${Date.now()}.pdf`;
+                a.download = `guardian-ai-report-${Date.now()}.json`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
@@ -458,7 +453,7 @@ const DashboardLLM = () => {
                     </div>
                 </div>
 
-                {/* Red Team Button (replacing Module Status) */}
+                {/* Red Team Button */}
                 <div className="p-4 border-t border-slate-800">
                     <button
                         onClick={() => navigate('/red-team')}
@@ -520,49 +515,6 @@ const DashboardLLM = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Module Quick Links */}
-                        <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/50 rounded-lg border border-slate-800">
-                            <button
-                                onClick={() => navigate('/firewall')}
-                                disabled={!llmConnection.connected}
-                                className="text-xs text-slate-400 hover:text-blue-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                Firewall
-                            </button>
-                            <span className="text-slate-700">|</span>
-                            <button
-                                onClick={() => navigate('/pii-anonymizer')}
-                                disabled={!llmConnection.connected}
-                                className="text-xs text-slate-400 hover:text-purple-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                PII
-                            </button>
-                            <span className="text-slate-700">|</span>
-                            <button
-                                onClick={() => navigate('/jailbreak-detector')}
-                                disabled={!llmConnection.connected}
-                                className="text-xs text-slate-400 hover:text-orange-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                Jailbreak
-                            </button>
-                            <span className="text-slate-700">|</span>
-                            <button
-                                onClick={() => navigate('/adversarial-test')}
-                                disabled={!llmConnection.connected}
-                                className="text-xs text-slate-400 hover:text-red-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                Adversarial
-                            </button>
-                            <span className="text-slate-700">|</span>
-                            <button
-                                onClick={() => navigate('/dlp-scanner')}
-                                disabled={!llmConnection.connected}
-                                className="text-xs text-slate-400 hover:text-green-400 font-bold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                DLP
-                            </button>
-                        </div>
-
                         {/* LLM Management Buttons */}
                         {llmConnection.connected ? (
                             <>
@@ -844,39 +796,9 @@ const DashboardLLM = () => {
                                 </div>
                             </button>
 
-                            {/* 4. Adversarial Testing */}
+                            {/* 4. DLP Scanner */}
                             <button
-                                onClick={() => navigate('/adversarial-test')}
-                                disabled={!llmConnection.connected}
-                                className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-red-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 group-hover:bg-red-500/20 transition-colors">
-                                        <Target size={20} />
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <div className={`w-2 h-2 rounded-full ${moduleHealth.adversarial.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></div>
-                                        <span className={`text-[9px] font-bold uppercase ${moduleHealth.adversarial.status === 'active' ? 'text-emerald-400' : 'text-slate-500'}`}>
-                                            {moduleHealth.adversarial.status}
-                                        </span>
-                                    </div>
-                                </div>
-                                <h4 className="text-sm font-bold text-white mb-2">Adversarial Test</h4>
-                                <div className="space-y-1 text-[10px] text-slate-400">
-                                    <div className="flex justify-between">
-                                        <span>Tests Run:</span>
-                                        <span className="font-bold text-white">{moduleHealth.adversarial.tests_run}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Attacks Blocked:</span>
-                                        <span className="font-bold text-white">{moduleHealth.adversarial.attacks_blocked}</span>
-                                    </div>
-                                </div>
-                            </button>
-
-                            {/* 5. DLP Scanner */}
-                            <button
-                                onClick={() => navigate('/dlp-scanner')}
+                                onClick={() => navigate('/DLP')}
                                 disabled={!llmConnection.connected}
                                 className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-green-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
                             >
@@ -908,13 +830,13 @@ const DashboardLLM = () => {
                             <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-800/50 rounded-lg p-4 flex flex-col justify-center">
                                 <div className="text-center">
                                     <div className="text-3xl font-black text-white mb-2">
-                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.adversarial.status, moduleHealth.dlp.status].filter(s => s === 'active').length}/5
+                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.dlp.status].filter(s => s === 'active').length}/4
                                     </div>
                                     <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-3">
                                         Modules Active
                                     </div>
                                     <div className="flex justify-center gap-1 mb-3">
-                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.adversarial.status, moduleHealth.dlp.status].map((status, i) => (
+                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.dlp.status].map((status, i) => (
                                             <div
                                                 key={i}
                                                 className={`w-2 h-2 rounded-full ${status === 'active' ? 'bg-emerald-500' : 'bg-slate-600'}`}

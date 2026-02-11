@@ -18,6 +18,12 @@ const ConnectLLMModal = ({ isOpen, onClose, onSuccess }) => {
 
     try {
       const token = localStorage.getItem('token');
+      
+      // ✅ Check if token exists
+      if (!token) {
+        throw new Error('Authentication failed. Please check your API key.');
+      }
+
       const response = await fetch('http://localhost:8000/api/llm/connect', {
         method: 'POST',
         headers: {
@@ -30,7 +36,16 @@ const ConnectLLMModal = ({ isOpen, onClose, onSuccess }) => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Connection failed');
+        // ✅ Better error messages
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please check your API key.');
+        } else if (response.status === 404) {
+          throw new Error('Model not found. Please verify the model name.');
+        } else if (response.status === 408 || response.status === 503) {
+          throw new Error('Cannot connect to endpoint. Please verify the URL.');
+        } else {
+          throw new Error(data.detail || 'Connection failed');
+        }
       }
 
       onSuccess(data);

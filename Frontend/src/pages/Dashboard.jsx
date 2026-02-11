@@ -382,20 +382,20 @@ const Dashboard = () => {
           <div className="bg-[#0B1120] rounded-xl border border-gray-800 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">🔒</span>
+                <span className="text-2xl">⚡</span>
               </div>
               <div>
-                <div className="text-gray-400 text-sm">Ingoing Firewall</div>
+                <div className="text-gray-400 text-sm">Token Abuse Monitor</div>
                 <div className="text-xs text-gray-600">
-                  Prompt Injection Blocked
+                  Usage Spikes Detected
                 </div>
               </div>
             </div>
             <div className="text-3xl font-black text-white mb-1">
-              {dashboardData?.firewall?.percentage || 0}%
+              {dashboardData?.token_abuse?.alerts || 0} Alerts
             </div>
-            <div className="text-green-400 text-sm font-bold">
-              {dashboardData?.firewall?.change || "+0%"} ↑
+            <div className={`text-sm font-bold ${dashboardData?.token_abuse?.status === 'NORMAL' ? 'text-green-400' : 'text-yellow-400'}`}>
+              {dashboardData?.token_abuse?.change || "+0%"} usage
             </div>
           </div>
 

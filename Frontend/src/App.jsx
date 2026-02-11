@@ -5,7 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Protection from "./pages/Protection";
 import Firewall from "./pages/Firewall";
-import DLP from "./pages/DLP";
+import DLPScanner from "./pages/DLPScanner.jsx";
 import AuditLogs from "./pages/AuditLogs";
 import SecurityGuidelines from "./pages/SecurityGuidelines";
 import SecureRAG from "./pages/SecureRAG";
@@ -16,9 +16,8 @@ import SupplyChain from "./pages/SupplyChain";
 import ArchitectureSelection from "./pages/ArchitectureSelection";
 import DashboardAgent from "./pages/DashboardAgent";
 import PIIAnonymizer from './pages/PIIAnonymizer';
-
-
 import DashboardLLM from "./pages/DashboardLLM.jsx";
+import JailbreakDetector from './pages/JailbreakDetector';
 
 function App() {
   return (
@@ -36,7 +35,12 @@ function App() {
           path="/register"
           element={<Register />}
         />
-      
+        <Route path="/jailbreak-detector" element={
+          
+            <JailbreakDetector />
+          
+        } />
+        
         <Route
           path="/protection"
           element={<Protection />}
@@ -49,6 +53,10 @@ function App() {
           path="/SecurityGuidelines"
           element={<SecurityGuidelines />}
         />
+        
+       
+          
+       
         <Route
           path="/audit-logs"
           element={<AuditLogs />}
@@ -58,9 +66,10 @@ function App() {
           element={<Firewall />}
         />
         <Route
-          path="/DLP"
-          element={<DLP />}
-        />
+  path="/dlp-scanner"
+  element={<DLPScanner />}
+/>
+
         <Route
           path="/secure-rag"
           element={<SecureRAG />}
@@ -89,7 +98,7 @@ function App() {
           path="/dashboard/agent"
           element={<DashboardAgent />}
         />
-<Route path="/pii-anonymizer" element={<PIIAnonymizer />} />
+ <Route path="/pii-anonymizer" element={<PIIAnonymizer />} />
 
         <Route
           path="/main-dashboard"

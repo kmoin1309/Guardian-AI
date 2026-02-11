@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import ConnectLLMModal from "../components/ConnectLLMModal";
@@ -10,12 +10,20 @@ const ArchitectureSelection = () => {
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [showAgentModal, setShowAgentModal] = useState(false);
 
-    // Form States for Agent
-    const [agentToken, setAgentToken] = useState("");
-    const [agentRuntime, setAgentRuntime] = useState("LangGraph");
-    const [agentIdentifier, setAgentIdentifier] = useState("");
-    const [agentUrl, setAgentUrl] = useState("");
+    // Form States for Agent with history restoration
+    const [agentToken, setAgentToken] = useState(() => localStorage.getItem('agentToken') || "");
+    const [agentRuntime, setAgentRuntime] = useState(() => localStorage.getItem('agentRuntime') || "LangGraph");
+    const [agentIdentifier, setAgentIdentifier] = useState(() => localStorage.getItem('agentIdentifier') || "");
+    const [agentUrl, setAgentUrl] = useState(() => localStorage.getItem('agentUrl') || "");
     const [showAgentToken, setShowAgentToken] = useState(false);
+
+    // Persist changes to history
+    useEffect(() => {
+        localStorage.setItem('agentToken', agentToken);
+        localStorage.setItem('agentRuntime', agentRuntime);
+        localStorage.setItem('agentIdentifier', agentIdentifier);
+        localStorage.setItem('agentUrl', agentUrl);
+    }, [agentToken, agentRuntime, agentIdentifier, agentUrl]);
 
     // Validation States for Agent
     const [isValidating, setIsValidating] = useState(false);
@@ -110,14 +118,20 @@ const ArchitectureSelection = () => {
         }, 600);
     };
 
+    const checkIsMalicious = () => {
+        return agentUrl.toLowerCase().includes('evil') ||
+            agentUrl.toLowerCase().includes('malicious') ||
+            agentUrl.toLowerCase().includes('exe') ||
+            agentUrl.toLowerCase().includes('trap') ||
+            agentToken === 'agpt_sk_7721839910_live' ||
+            agentIdentifier === 'autogpt-primary-instance' ||
+            agentIdentifier.toLowerCase().includes('exe');
+    };
+
     const handleConnectAgent = async () => {
         try {
             const token = localStorage.getItem('token');
-            const isMalicious =
-                agentUrl.toLowerCase().includes('evil') ||
-                agentUrl.toLowerCase().includes('malicious') ||
-                agentToken === 'agpt_sk_7721839910_live' ||
-                agentIdentifier === 'autogpt-primary-instance';
+            const isMalicious = checkIsMalicious();
 
             await fetch('http://localhost:8000/api/agent-safety/agents', {
                 method: 'POST',
@@ -149,11 +163,7 @@ const ArchitectureSelection = () => {
         setIsValidated(false);
         setValidationError(null);
 
-        const isMalicious =
-            agentUrl.toLowerCase().includes('evil') ||
-            agentUrl.toLowerCase().includes('malicious') ||
-            agentToken === 'agpt_sk_7721839910_live' ||
-            agentIdentifier === 'autogpt-primary-instance';
+        const isMalicious = checkIsMalicious();
 
         setTimeout(() => {
             setIsValidating(false);

@@ -96,7 +96,3 @@ The backend exposes several key API endpoints for security operations:
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-[License Name] - See the LICENSE file for details.

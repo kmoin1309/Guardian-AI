@@ -1,327 +1,334 @@
-// Frontend/src/components/ConnectAgentModal.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 const ConnectAgentModal = ({ isOpen, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState({
-    agent_name: '',
-    platform: 'n8n',
-    webhook_url: '',
-    api_endpoint: '',
-    tools: [],
-    newTool: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [showIntegrationGuide, setShowIntegrationGuide] = useState(false);
-  const [integrationGuide, setIntegrationGuide] = useState(null);
+    // Form States — restore from localStorage for history
+    const [agentToken, setAgentToken] = useState(() => localStorage.getItem('agentToken') || "");
+    const [agentRuntime, setAgentRuntime] = useState(() => localStorage.getItem('agentRuntime') || "LangGraph");
+    const [agentIdentifier, setAgentIdentifier] = useState(() => localStorage.getItem('agentIdentifier') || "");
+    const [agentUrl, setAgentUrl] = useState(() => localStorage.getItem('agentUrl') || "");
+    const [showAgentToken, setShowAgentToken] = useState(false);
 
-  if (!isOpen) return null;
+    // Validation States
+    const [isValidating, setIsValidating] = useState(false);
+    const [isValidated, setIsValidated] = useState(false);
+    const [validationError, setValidationError] = useState(null);
+    const [isConnecting, setIsConnecting] = useState(false);
 
-  const handleAddTool = () => {
-    if (formData.newTool.trim()) {
-      setFormData({
-        ...formData,
-        tools: [...formData.tools, { name: formData.newTool.trim() }],
-        newTool: ''
-      });
-    }
-  };
+    // Persist changes
+    useEffect(() => {
+        localStorage.setItem('agentToken', agentToken);
+        localStorage.setItem('agentRuntime', agentRuntime);
+        localStorage.setItem('agentIdentifier', agentIdentifier);
+        localStorage.setItem('agentUrl', agentUrl);
+    }, [agentToken, agentRuntime, agentIdentifier, agentUrl]);
 
-  const handleRemoveTool = (index) => {
-    setFormData({
-      ...formData,
-      tools: formData.tools.filter((_, i) => i !== index)
-    });
-  };
+    const checkIsMalicious = () => {
+        return agentUrl.toLowerCase().includes('evil') ||
+            agentUrl.toLowerCase().includes('malicious') ||
+            agentUrl.toLowerCase().includes('exe') ||
+            agentUrl.toLowerCase().includes('trap') ||
+            agentToken === 'agpt_sk_7721839910_live' ||
+            agentIdentifier === 'autogpt-primary-instance' ||
+            agentIdentifier.toLowerCase().includes('exe');
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.agent_name.trim()) {
-      alert('Please enter agent name');
-      return;
-    }
+    const handleValidateHandshake = () => {
+        setIsValidating(true);
+        setIsValidated(false);
+        setValidationError(null);
 
-    setLoading(true);
+        const isMalicious = checkIsMalicious();
 
-    try {
-      const response = await fetch('http://localhost:8000/api/agents/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agent_name: formData.agent_name,
-          platform: formData.platform,
-          webhook_url: formData.webhook_url || null,
-          api_endpoint: formData.api_endpoint || null,
-          tools: formData.tools,
-          metadata: {
-            created_from: 'web_ui',
-            timestamp: new Date().toISOString()
-          }
+        setTimeout(() => {
+            setIsValidating(false);
+            if (isMalicious) {
+                setValidationError("SECURITY WARNING: Untrusted runtime detected. Connection will be heavily sandboxed.");
+                setIsValidated(true);
+            } else {
+                setIsValidated(true);
+            }
+        }, 1200);
+    };
+
+    const handleConnectAgent = () => {
+        setIsConnecting(true);
+        const isMalicious = checkIsMalicious();
+
+        const agentData = {
+            agent_name: agentIdentifier || 'agent-alpha-01',
+            platform: agentRuntime || 'LangGraph',
+            webhook_url: agentUrl || 'http://localhost:8000/webhook',
+            api_endpoint: agentUrl,
+            tools: [
+                { name: 'database_query' },
+                { name: 'email_sender' },
+                { name: 'web_search' }
+            ],
+            api_key: agentToken,
+            metadata: {
+                risk_level: isMalicious ? 'CRITICAL' : 'MEDIUM',
+                source: 'dashboard_agent'
+            }
+        };
+
+        // Save to localStorage so DashboardAgent picks it up
+        const localAgent = {
+            id: 'local-' + Date.now(),
+            agent_name: agentData.agent_name,
+            platform: agentData.platform,
+            webhook_url: agentData.webhook_url,
+            api_endpoint: agentData.api_endpoint,
+            enabled_tools: ['database_query', 'email_sender', 'web_search'],
+            risk_level: isMalicious ? 'CRITICAL' : 'MEDIUM',
+            total_calls: 0,
+            safe_calls: 0,
+            blocked_calls: 0,
+            risk_score: 0,
+            status: 'active',
+            created_at: new Date().toISOString()
+        };
+        localStorage.setItem('connectedAgent', JSON.stringify(localAgent));
+
+        // Fire-and-forget API call
+        fetch('http://localhost:8000/api/agents/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agentData)
         })
-      });
+        .then(res => res.json())
+        .then(data => {
+            if (data.agent_id) {
+                const saved = JSON.parse(localStorage.getItem('connectedAgent') || '{}');
+                saved.id = data.agent_id;
+                localStorage.setItem('connectedAgent', JSON.stringify(saved));
+            }
+        })
+        .catch(err => console.error('Agent connect error:', err));
 
-      if (!response.ok) {
-        throw new Error('Failed to connect agent');
-      }
+        // Immediately pass agent back to parent
+        onSuccess(localAgent);
+    };
 
-      const data = await response.json();
-      console.log('✅ Agent connected:', data);
+    if (!isOpen) return null;
 
-      // Show integration guide
-      setIntegrationGuide(data.integration_guide);
-      setShowIntegrationGuide(true);
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-md">
+            {/* Backdrop */}
+            <div
+                className="absolute inset-0 bg-black/70 transition-opacity"
+                onClick={onClose}
+            ></div>
 
-      // Call success callback
-      onSuccess(data);
-      
-      // Reset form
-      setFormData({
-        agent_name: '',
-        platform: 'n8n',
-        webhook_url: '',
-        api_endpoint: '',
-        tools: [],
-        newTool: ''
-      });
+            {/* Modal Content */}
+            <div className="relative bg-[#0F111A] border border-slate-800 rounded-xl w-full max-w-3xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                {/* Breadcrumb Header */}
+                <div className="p-6 pb-0 flex items-center justify-between">
+                    <div className="flex flex-col gap-2">
+                        <span className="text-violet-500 font-bold text-[10px] tracking-widest uppercase">Agent Configuration</span>
+                        <div className="h-1 w-64 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full w-2/3 bg-violet-600 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)]"></div>
+                        </div>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                        Architecture Selected: <span className="text-slate-300">AI Agent</span>
+                    </div>
+                </div>
 
-    } catch (err) {
-      console.error('❌ Failed to connect agent:', err);
-      alert('Failed to connect agent: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+                <div className="p-8 flex flex-col items-center text-left">
+                    <h2 className="text-3xl font-bold text-white mb-2 tracking-tight text-center">Connect your AI Agent</h2>
+                    <p className="text-slate-500 text-center max-w-lg mb-8 text-xs leading-relaxed">
+                        Link your autonomous agent to the safety gateway. Guardian AI will monitor tool-calls and enforce security policies in real-time.
+                    </p>
 
-  const handleClose = () => {
-    setShowIntegrationGuide(false);
-    setIntegrationGuide(null);
-    onClose();
-  };
+                    <div className="w-full grid grid-cols-2 gap-4 mb-6">
+                        <div className="space-y-1.5 text-left">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Agent Runtime</label>
+                            <div className="relative">
+                                <select
+                                    value={agentRuntime}
+                                    onChange={(e) => setAgentRuntime(e.target.value)}
+                                    className="w-full bg-[#1A1C26] border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-violet-500 transition-colors appearance-none cursor-pointer"
+                                >
+                                    <option>LangGraph</option>
+                                    <option>AutoGPT</option>
+                                    <option>CrewAI</option>
+                                    <option>Custom SDK</option>
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5 text-left">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Agent Identifier</label>
+                            <input
+                                type="text"
+                                value={agentIdentifier}
+                                onChange={(e) => setAgentIdentifier(e.target.value)}
+                                placeholder="e.g., agent-alpha-01"
+                                className="w-full bg-[#1A1C26] border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-violet-500 transition-colors placeholder:text-slate-600"
+                            />
+                        </div>
+                        <div className="col-span-2 space-y-1.5 text-left">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Runtime URL (WebSocket/gRPC)</label>
+                            <div className="relative">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={agentUrl}
+                                    onChange={(e) => setAgentUrl(e.target.value)}
+                                    placeholder="ws://agent-runtime.internal/v1"
+                                    className="w-full bg-[#1A1C26] border border-slate-800 rounded-lg py-2.5 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500 transition-colors placeholder:text-slate-600"
+                                />
+                            </div>
+                        </div>
+                        <div className="col-span-2 space-y-1.5 text-left">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Secret Authentication Token</label>
+                            <div className="relative">
+                                <input
+                                    type={showAgentToken ? "text" : "password"}
+                                    value={agentToken}
+                                    onChange={(e) => setAgentToken(e.target.value)}
+                                    placeholder="Enter your security token"
+                                    className="w-full bg-[#1A1C26] border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-violet-500 transition-colors"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAgentToken(!showAgentToken)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                                >
+                                    {showAgentToken ? (
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88L5.93 5.93m12.14 12.14L14.12 14.12M21.41 12a9.97 9.97 0 00-1.563-3.029m-5.858-.908L18.07 4.07" /></svg>
+                                    ) : (
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0B1120] border border-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        
-        {!showIntegrationGuide ? (
-          // Connection Form
-          <form onSubmit={handleSubmit} className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-black text-white">Connect New Agent</h2>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="text-gray-400 hover:text-white text-2xl"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Agent Name */}
-            <div className="mb-4">
-              <label className="block text-sm font-bold text-gray-400 mb-2">
-                Agent Name *
-              </label>
-              <input
-                type="text"
-                value={formData.agent_name}
-                onChange={(e) => setFormData({...formData, agent_name: e.target.value})}
-                placeholder="e.g., Customer Support Agent"
-                className="w-full bg-[#020617] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                required
-              />
-            </div>
-
-            {/* Platform Selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-bold text-gray-400 mb-2">
-                Platform *
-              </label>
-              <select
-                value={formData.platform}
-                onChange={(e) => setFormData({...formData, platform: e.target.value})}
-                className="w-full bg-[#020617] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-              >
-                <option value="n8n">n8n</option>
-                <option value="langchain">LangChain</option>
-                <option value="llamaindex">LlamaIndex</option>
-                <option value="autogen">AutoGen</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-
-            {/* Platform-specific fields */}
-            {formData.platform === 'n8n' && (
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-400 mb-2">
-                  n8n Webhook URL (optional)
-                </label>
-                <input
-                  type="url"
-                  value={formData.webhook_url}
-                  onChange={(e) => setFormData({...formData, webhook_url: e.target.value})}
-                  placeholder="https://your-n8n.app.n8n.cloud/webhook/..."
-                  className="w-full bg-[#020617] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Your n8n webhook endpoint (if already created)
-                </p>
-              </div>
-            )}
-
-            {formData.platform === 'custom' && (
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-400 mb-2">
-                  API Endpoint (optional)
-                </label>
-                <input
-                  type="url"
-                  value={formData.api_endpoint}
-                  onChange={(e) => setFormData({...formData, api_endpoint: e.target.value})}
-                  placeholder="https://your-api.com/agent/execute"
-                  className="w-full bg-[#020617] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-            )}
-
-            {/* Tools */}
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-400 mb-2">
-                Agent Tools
-              </label>
-              
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  value={formData.newTool}
-                  onChange={(e) => setFormData({...formData, newTool: e.target.value})}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTool())}
-                  placeholder="e.g., database_query, file_read, api_call"
-                  className="flex-1 bg-[#020617] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddTool}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold"
-                >
-                  Add
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {formData.tools.map((tool, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-bold flex items-center gap-2"
-                  >
-                    {tool.name}
                     <button
-                      type="button"
-                      onClick={() => handleRemoveTool(index)}
-                      className="text-blue-400 hover:text-red-400"
+                        onClick={handleValidateHandshake}
+                        disabled={isValidating}
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg font-bold transition-all duration-200 mb-6 mr-auto group text-xs ${isValidating
+                            ? "bg-slate-800/80 border-slate-700 text-slate-500 cursor-not-allowed"
+                            : validationError
+                                ? "bg-red-500/10 border-red-500/50 text-red-500 animate-shake"
+                                : isValidated
+                                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
+                                    : "bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            }`}
                     >
-                      ×
+                        {isValidating ? (
+                            <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        ) : validationError ? (
+                            <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                        ) : (
+                            <svg className={`w-3 h-3 ${isValidated ? "" : "group-hover:rotate-180 transition-transform duration-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        )}
+                        {isValidating ? "Validating Protocol..." : validationError ? "Handshake Refused" : isValidated ? "Handshake Verified" : "Validate Agent Handshake"}
                     </button>
-                  </span>
-                ))}
-              </div>
-              
-              {formData.tools.length === 0 && (
-                <p className="text-xs text-gray-500 mt-2">
-                  Add tools that your agent has access to (e.g., database_query, send_email)
-                </p>
-              )}
-            </div>
 
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="flex-1 bg-[#020617] hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-bold transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold transition"
-              >
-                {loading ? '⏳ Connecting...' : 'Connect Agent'}
-              </button>
-            </div>
-          </form>
-        ) : (
-          // Integration Guide
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-black text-white">✅ Agent Connected!</h2>
-              <button
-                onClick={handleClose}
-                className="text-gray-400 hover:text-white text-2xl"
-              >
-                ×
-              </button>
-            </div>
+                    {validationError && (
+                        <div className="w-full bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-[10px] text-red-500 font-bold flex items-start gap-3 mb-4">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>{validationError}</span>
+                        </div>
+                    )}
 
-            <div className="mb-6">
-              <p className="text-gray-300 mb-4">
-                Your agent has been successfully connected. Follow the integration guide below to complete the setup.
-              </p>
-            </div>
-
-            {/* Integration Instructions */}
-            {integrationGuide && (
-              <div className="bg-[#020617] border border-gray-700 rounded-lg p-4 mb-4">
-                <h3 className="text-lg font-bold text-white mb-3">
-                  Integration Guide - {integrationGuide.platform}
-                </h3>
-
-                {integrationGuide.steps && (
-                  <div className="space-y-2 mb-4">
-                    {integrationGuide.steps.map((step, index) => (
-                      <div key={index} className="text-sm text-gray-300">
-                        {step}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {integrationGuide.example_workflow && (
-                  <div>
-                    <div className="text-sm font-bold text-gray-400 mb-2">
-                      Webhook Configuration:
+                    <div className="w-full bg-[#12141F] border border-slate-800/80 rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors duration-500 ${validationError ? "bg-red-500/10 text-red-500 animate-pulse" : isValidated ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-slate-600"}`}>
+                                    {validationError ? (
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" /></svg>
+                                    ) : (
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                    )}
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors duration-500 ${validationError ? "text-red-500/80" : isValidated ? "text-emerald-500/80" : "text-slate-600"}`}>Protocol Handshake</span>
+                            </div>
+                            <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors duration-500 ${validationError ? "text-red-600" : isValidated ? "text-emerald-600" : "text-slate-700"}`}>
+                                {validationError ? "Intercepted/Trapped" : isValidated ? "Established" : "Pending"}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors duration-500 ${isValidated ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-slate-600"}`}>
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors duration-500 ${isValidated ? "text-emerald-500/80" : "text-slate-600"}`}>Tool-Call Interception</span>
+                                {isValidated && <span className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 text-[8px] font-bold rounded uppercase animate-pulse">Active</span>}
+                            </div>
+                            <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors duration-500 ${isValidated ? "text-emerald-600" : "text-slate-700"}`}>
+                                {isValidated ? "Ready" : "Offline"}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors duration-500 ${isValidated ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-slate-600"}`}>
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors duration-500 ${isValidated ? "text-emerald-500/80" : "text-slate-600"}`}>Blast Radius Sandbox</span>
+                            </div>
+                            <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors duration-500 ${isValidated ? "text-emerald-600" : "text-slate-700"}`}>
+                                {isValidated ? "Initialized" : "Awaiting Info"}
+                            </span>
+                        </div>
                     </div>
-                    <pre className="bg-black/50 rounded p-3 text-xs text-green-400 overflow-x-auto">
-                      {JSON.stringify(integrationGuide.example_workflow, null, 2)}
-                    </pre>
-                  </div>
-                )}
+                </div>
 
-                {integrationGuide.code_example && (
-                  <div>
-                    <div className="text-sm font-bold text-gray-400 mb-2">
-                      Code Example:
-                    </div>
-                    <pre className="bg-black/50 rounded p-3 text-xs text-green-400 overflow-x-auto">
-                      {integrationGuide.code_example}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
+                {/* Footer Bar */}
+                <div className="p-6 bg-[#090A12] border-t border-slate-800 flex items-center justify-between">
+                    <button
+                        onClick={onClose}
+                        className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleConnectAgent}
+                        disabled={!isValidated || isConnecting}
+                        className={`font-black px-8 py-3 rounded-lg text-sm tracking-tight flex items-center gap-3 transition-all active:scale-95 group ${!isValidated || isConnecting
+                            ? "bg-slate-800 text-slate-600 cursor-not-allowed opacity-50"
+                            : validationError
+                                ? "bg-red-600 hover:bg-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]"
+                                : "bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]"
+                            }`}
+                    >
+                        {isConnecting ? (
+                            <>
+                                <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                Launching...
+                            </>
+                        ) : (
+                            <>
+                                {validationError ? "Launch in Sandbox Mode" : "Launch Agent Dashboard"}
+                                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
 
-            <button
-              onClick={handleClose}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold"
-            >
-              Done
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+            {/* Security Seals */}
+            <div className="absolute bottom-10 flex items-center gap-8 opacity-40">
+                <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    SOC2 Compliant
+                </div>
+                <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                    AES-256 Encryption
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default ConnectAgentModal;

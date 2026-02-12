@@ -282,6 +282,13 @@ export default function RedTeaming() {
     const tableColumn = ["ID", "Category", "Attack Scenario", "Verdict", "Risk", "Latency", "Analysis"];
     const tableRows = [];
 
+    // Helper to strip emojis/non-ascii for PDF
+    const cleanForPdf = (text) => {
+       if (!text) return '';
+       // Remove non-ASCII characters to prevent PDF encoding errors
+       return text.replace(/[^\x20-\x7E]/g, '');
+    };
+
     attackFeed.forEach((item, index) => {
       const riskScore = item.result.risk_score;
       const verdict = item.result.verdict;
@@ -293,7 +300,7 @@ export default function RedTeaming() {
         verdict,
         `${riskScore}/100`,
         `${item.result.response_time_ms}ms`,
-        item.result.analysis || 'N/A'
+        cleanForPdf(item.result.analysis || 'N/A')
       ];
       tableRows.push(rowData);
     });

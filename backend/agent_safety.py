@@ -1,4 +1,6 @@
-# backend/agent_connector.py
+# backend/agent_connector.py - UPDATED
+from agent_red_team import AgentRedTeam
+
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -109,10 +111,7 @@ async def intercept_tool_call(agent_id: str, tool_call: ToolCall):
     agent = connected_agents[agent_id]
     agent["total_calls"] += 1
     
-    # Import security modules
-    from Red_team import analyze_tool_call_risk, calculate_risk_score
-    
-    # Analyze the tool call
+    # Analyze tool call locally (removed Red_team dependency)
     risk_analysis = analyze_tool_call_risk(
         {"tool_name": tool_call.tool_name, "parameters": tool_call.parameters},
         "general"
@@ -150,55 +149,59 @@ async def intercept_tool_call(agent_id: str, tool_call: ToolCall):
         "timestamp": datetime.utcnow().isoformat()
     }
 
-@router.post("/api/agents/{agent_id}/test")
-async def test_agent_security(agent_id: str, test: TestRequest):
-    """Run security tests against the agent"""
+@router.post("/api/agents/{agent_id}/attack")
+async def execute_agent_attack(agent_id: str, payload: Dict[str, str]):
+    """Execute a Red Team attack against an external agent (e.g. n8n)"""
     
     if agent_id not in connected_agents:
         raise HTTPException(status_code=404, detail="Agent not found")
     
     agent = connected_agents[agent_id]
     
-    # Import security testing module
-    from Red_team import run_red_team_test
+    # We need the agent's INPUT endpoint (webhook) to attack it
+    target_url = agent.get("webhook_url") or agent.get("api_endpoint")
     
-    # Run the test
-    test_result = await run_red_team_test(
-        agent_id=agent_id,
-        attack_type=test.test_type,
-        malicious_prompt=test.malicious_prompt,
-        agent_tools=agent["tools"]
-    )
+    if not target_url:
+        return {
+            "success": False, 
+            "message": "No Webhook/API Endpoint configured for this agent. Cannot execute active Red Team attacks."
+        }
     
-    # Update agent stats
-    agent["total_calls"] += 1
+    attack_type = payload.get("attack_type", "prompt_injection")
     
-    if test_result["blocked"]:
-        agent["blocked_calls"] += 1
-    else:
-        agent["safe_calls"] += 1
+    red_team = AgentRedTeam()
+    result = await red_team.run_attack(target_url, attack_type)
     
-    agent["risk_scores"].append(test_result["risk_score"])
+    # Update stats
+    agent["total_calls"] += len(result["results"])
+    failed_attempts = len([r for r in result["results"] if not r["blocked"]]) # Failed defense = successful attack
     
-    # Update risk level
-    avg_risk = sum(agent["risk_scores"]) / len(agent["risk_scores"])
-    agent["risk_score"] = avg_risk * 100
-    
-    if avg_risk > 0.7:
+    # If defense failed, it's a security risk
+    if failed_attempts > 0:
+        agent["risk_score"] = max(agent["risk_score"], 80.0)
         agent["risk_level"] = "HIGH"
-    elif avg_risk > 0.4:
-        agent["risk_level"] = "MEDIUM"
-    else:
-        agent["risk_level"] = "LOW"
     
+    return result
+
+@router.get("/api/agents/{agent_id}/report")
+async def generate_agent_report(agent_id: str):
+    """Generate a PDF report for the agent"""
+    if agent_id not in connected_agents:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    agent = connected_agents[agent_id]
+    
+    # In a real app, generate PDF bytes. Here we return JSON structured for the frontend to render PDF.
     return {
-        "test_type": test.test_type,
-        "result": test_result["blocked"],
-        "blocked": test_result["blocked"],
-        "risk_score": test_result["risk_score"] * 100,
-        "expected": test.expected_behavior,
-        "passed": test_result["blocked"] == (test.expected_behavior == "block"),
-        "details": test_result
+        "success": True,
+        "agent_name": agent["name"],
+        "pipeline_health": agent["risk_level"],
+        "stats": {
+            "total_calls": agent["total_calls"],
+            "blocks": agent["blocked_calls"],
+            "score": 100 - agent["risk_score"]
+        },
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 def generate_integration_guide(agent_id: str, platform: str) -> Dict:
@@ -273,3 +276,44 @@ def get_block_reason(risk_analysis: Dict) -> str:
             reasons.append(vuln)
     
     return " | ".join(reasons) if reasons else "Potential security risk detected"
+
+# --- Local Security Analysis Implementation ---
+
+def analyze_tool_call_risk(tool_call: Dict, mode: str) -> Dict:
+    """Analyze tool call safely without external dependencies"""
+    tool_name = tool_call.get("tool_name", "")
+    params = str(tool_call.get("parameters", ""))
+    
+    risk_score = 0.0
+    vulnerabilities = []
+    
+    # Dangerous tools
+    high_risk_tools = ["python_executor", "system_command", "file_writer", "database_query"]
+    if tool_name in high_risk_tools:
+        risk_score += 0.4
+        vulnerabilities.append(f"High risk tool: {tool_name}")
+        
+    # Dangerous patterns in params
+    dangerous_patterns = [
+        "drop table", "delete from", "orm.delete", # SQL
+        "rm -rf", "wget", "curl", "chmod", "chown", # System
+        "import os", "import sys", "subprocess", "eval(", "exec(" # Code
+    ]
+    
+    for pattern in dangerous_patterns:
+        if pattern in params.lower():
+            risk_score += 0.5
+            vulnerabilities.append(f"Dangerous pattern detected: {pattern}")
+            
+    # Cap risk score
+    risk_score = min(risk_score, 1.0)
+    
+    return {
+        "risk_score": risk_score,
+        "should_block": risk_score > 0.7,
+        "vulnerabilities": vulnerabilities,
+        "reason": " | ".join(vulnerabilities) if vulnerabilities else "Safe"
+    }
+
+def calculate_risk_score(tool_call: Dict) -> float:
+    return analyze_tool_call_risk(tool_call, "general")["risk_score"]

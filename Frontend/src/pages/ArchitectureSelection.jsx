@@ -29,6 +29,7 @@ const ArchitectureSelection = () => {
     const [isValidating, setIsValidating] = useState(false);
     const [isValidated, setIsValidated] = useState(false);
     const [validationError, setValidationError] = useState(null);
+    const [isConnecting, setIsConnecting] = useState(false);
 
     const architectures = [
         {
@@ -128,34 +129,65 @@ const ArchitectureSelection = () => {
             agentIdentifier.toLowerCase().includes('exe');
     };
 
-    const handleConnectAgent = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const isMalicious = checkIsMalicious();
+    const handleConnectAgent = () => {
+        setIsConnecting(true);
+        const isMalicious = checkIsMalicious();
 
-            await fetch('http://localhost:8000/api/agent-safety/agents', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    agent_name: agentIdentifier || 'test-agent',
-                    agent_type: agentRuntime,
-                    endpoint_url: agentUrl || 'ws://localhost:8000',
-                    enabled_tools: ['database_query', 'email_sender', 'web_search'],
-                    risk_level: isMalicious ? 'CRITICAL' : 'MEDIUM'
-                })
-            });
+        const agentData = {
+            agent_name: agentIdentifier || 'agent-alpha-01',
+            platform: agentRuntime || 'LangGraph',
+            webhook_url: agentUrl || 'http://localhost:8000/webhook',
+            api_endpoint: agentUrl,
+            tools: [
+                { name: 'database_query' },
+                { name: 'email_sender' },
+                { name: 'web_search' }
+            ],
+            api_key: agentToken,
+            metadata: {
+                risk_level: isMalicious ? 'CRITICAL' : 'MEDIUM',
+                source: 'architecture_selection'
+            }
+        };
 
-            setSelectedArch('agent');
-            setTimeout(() => {
-                navigate('/dashboard/agent');
-            }, 200);
-        } catch (error) {
-            console.error('Error connecting agent:', error);
-            navigate('/dashboard/agent');
-        }
+        // Save to localStorage so DashboardAgent can read it immediately
+        localStorage.setItem('connectedAgent', JSON.stringify({
+            id: 'local-' + Date.now(),
+            agent_name: agentData.agent_name,
+            platform: agentData.platform,
+            webhook_url: agentData.webhook_url,
+            api_endpoint: agentData.api_endpoint,
+            enabled_tools: ['database_query', 'email_sender', 'web_search'],
+            risk_level: isMalicious ? 'CRITICAL' : 'MEDIUM',
+            total_calls: 0,
+            safe_calls: 0,
+            blocked_calls: 0,
+            risk_score: 0,
+            status: 'active',
+            created_at: new Date().toISOString()
+        }));
+
+        // Fire-and-forget: send agent connection to backend
+        fetch('http://localhost:8000/api/agents/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agentData)
+        })
+        .then(res => res.json())
+        .then(data => {
+            // Update localStorage with the real backend agent ID if available
+            if (data.agent_id) {
+                const saved = JSON.parse(localStorage.getItem('connectedAgent') || '{}');
+                saved.id = data.agent_id;
+                localStorage.setItem('connectedAgent', JSON.stringify(saved));
+            }
+        })
+        .catch(err => console.error('Agent connect error:', err));
+
+        // Navigate immediately — don't wait for fetch
+        setShowAgentModal(false);
+        setSelectedArch('agent');
+        navigate('/dashboard/agent');
     };
 
     const handleValidateHandshake = () => {
@@ -485,16 +517,25 @@ const ArchitectureSelection = () => {
                             </button>
                             <button
                                 onClick={handleConnectAgent}
-                                disabled={!isValidated}
-                                className={`font-black px-8 py-3 rounded-lg text-sm tracking-tight flex items-center gap-3 transition-all active:scale-95 group ${!isValidated
+                                disabled={!isValidated || isConnecting}
+                                className={`font-black px-8 py-3 rounded-lg text-sm tracking-tight flex items-center gap-3 transition-all active:scale-95 group ${!isValidated || isConnecting
                                     ? "bg-slate-800 text-slate-600 cursor-not-allowed opacity-50"
                                     : validationError
                                         ? "bg-red-600 hover:bg-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]"
                                         : "bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]"
                                     }`}
                             >
-                                {validationError ? "Launch in Sandbox Mode" : "Launch Agent Dashboard"}
-                                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                {isConnecting ? (
+                                    <>
+                                        <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                        Launching...
+                                    </>
+                                ) : (
+                                    <>
+                                        {validationError ? "Launch in Sandbox Mode" : "Launch Agent Dashboard"}
+                                        <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

@@ -49,7 +49,7 @@ async def connect_llm(request: LLMConnectionRequest):
         }
         
         start_time = datetime.now()
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 request.endpoint_url,
                 json=test_payload,
@@ -145,7 +145,7 @@ async def test_llm_connection():
         }
         
         start_time = datetime.now()
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 connected_llm['endpoint_url'],
                 json=test_payload,
@@ -197,7 +197,7 @@ async def query_llm(prompt: str):
             "max_tokens": 500
         }
         
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 connected_llm['endpoint_url'],
                 json=payload,

@@ -25,6 +25,8 @@ import DashboardAgent from "./pages/DashboardAgent";
 import PIIAnonymizer from './pages/PIIAnonymizer';
 import DashboardLLM from "./pages/DashboardLLM.jsx";
 import JailbreakDetector from './pages/JailbreakDetector';
+import RAGPoisoningLab from "./pages/RAGPoisoningLab";
+
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -50,6 +52,7 @@ const AnimatedRoutes = () => {
         <Route path="/dashboard/agent" element={<PageTransition><DashboardAgent /></PageTransition>} />
         <Route path="/pii-anonymizer" element={<PageTransition><PIIAnonymizer /></PageTransition>} />
         <Route path="/main-dashboard" element={<PageTransition><DashboardLLM /></PageTransition>} />
+        <Route path="/rag-poisoning-lab" element={<PageTransition><RAGPoisoningLab /></PageTransition>} />
       </Routes>
     </AnimatePresence>
   );

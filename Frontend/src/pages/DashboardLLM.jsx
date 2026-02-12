@@ -39,6 +39,7 @@ const DashboardLLM = () => {
         firewall: { status: 'inactive', latency: 0, scans: 0 },
         pii: { status: 'inactive', redacted: 0, scans: 0 },
         jailbreak: { status: 'inactive', detected: 0, confidence: 0 },
+        adversarial: { status: 'idle', tests_run: 0, attacks_blocked: 0 },
         dlp: { status: 'inactive', leaks_found: 0, scans: 0 }
     });
 
@@ -177,7 +178,7 @@ const DashboardLLM = () => {
             // Check if LLM is connected first
             const llmConnected = llmConnection.connected;
 
-            const [firewallRes, piiRes, jailbreakRes, dlpRes] = await Promise.all([
+            const [firewallRes, piiRes, jailbreakRes, adversarialRes, dlpRes] = await Promise.all([
                 fetch('http://localhost:8000/api/firewall/history', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
@@ -185,6 +186,9 @@ const DashboardLLM = () => {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
                 fetch('http://localhost:8000/api/jailbreak/stats', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }),
+                fetch('http://localhost:8000/api/adversarial/stats', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }),
                 fetch('http://localhost:8000/api/dlp/stats', {
@@ -208,12 +212,17 @@ const DashboardLLM = () => {
                 jailbreakStats = await jailbreakRes.json();
             }
 
+            let adversarialStats = { tests_run: 0, attacks_blocked: 0 };
+            if (adversarialRes.ok) {
+                adversarialStats = await adversarialRes.json();
+            }
+
             let dlpStats = { leaks_found: 0, scans: 0 };
             if (dlpRes.ok) {
                 dlpStats = await dlpRes.json();
             }
 
-            // ✅ FIX: Modules are active if LLM is connected, regardless of usage stats
+            // Modules are active if LLM is connected, regardless of usage stats
             setModuleHealth({
                 firewall: {
                     status: llmConnected ? 'active' : 'inactive',
@@ -229,6 +238,11 @@ const DashboardLLM = () => {
                     status: llmConnected ? 'active' : 'inactive',
                     detected: jailbreakStats.jailbreaks_found || 0,
                     confidence: jailbreakStats.avg_confidence || 0
+                },
+                adversarial: {
+                    status: llmConnected ? 'active' : 'idle',
+                    tests_run: adversarialStats.tests_run || 0,
+                    attacks_blocked: adversarialStats.attacks_blocked || 0
                 },
                 dlp: {
                     status: llmConnected ? 'active' : 'inactive',
@@ -251,7 +265,7 @@ const DashboardLLM = () => {
             if (response.ok) {
                 const data = await response.json();
                 setLlmConnection(data);
-                
+
                 // Refresh module health when LLM connection changes
                 fetchModuleHealth();
             }
@@ -413,6 +427,45 @@ const DashboardLLM = () => {
                         Back to Selection
                     </button>
 
+                    <div className="border-t border-slate-800 my-3" />
+
+                    {/* Module Quick Links */}
+                    <p className="text-[9px] text-slate-600 uppercase font-bold tracking-widest px-4 mb-2">Security Modules</p>
+                    <button
+                        onClick={() => navigate('/firewall')}
+                        disabled={!llmConnection.connected}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Zap size={16} />
+                        Firewall
+                    </button>
+                    <button
+                        onClick={() => navigate('/pii-anonymizer')}
+                        disabled={!llmConnection.connected}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Shield size={16} />
+                        PII Scanner
+                    </button>
+                    <button
+                        onClick={() => navigate('/jailbreak-detector')}
+                        disabled={!llmConnection.connected}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-orange-400 hover:bg-orange-500/5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <AlertCircle size={16} />
+                        Jailbreak
+                    </button>
+                    <button
+                        onClick={() => navigate('/dlp-scanner')}
+                        disabled={!llmConnection.connected}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-green-400 hover:bg-green-500/5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <ShieldCheck size={16} />
+                        DLP Scanner
+                    </button>
+
+                    <div className="border-t border-slate-800 my-3" />
+
                     {/* Settings */}
                     <button
                         onClick={() => navigate('/settings')}
@@ -480,8 +533,8 @@ const DashboardLLM = () => {
 
                         {/* LLM Connection Status */}
                         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${llmConnection.connected
-                                ? 'bg-emerald-900/20 border-emerald-800'
-                                : 'bg-red-900/20 border-red-800'
+                            ? 'bg-emerald-900/20 border-emerald-800'
+                            : 'bg-red-900/20 border-red-800'
                             }`}>
                             <Plug size={14} className={llmConnection.connected ? 'text-emerald-400' : 'text-red-400'} />
                             <span className="text-xs text-slate-400">Model:</span>
@@ -796,9 +849,39 @@ const DashboardLLM = () => {
                                 </div>
                             </button>
 
-                            {/* 4. DLP Scanner */}
+                            {/* 4. Adversarial Testing */}
                             <button
-                                onClick={() => navigate('/DLP')}
+                                onClick={() => navigate('/adversarial-test')}
+                                disabled={!llmConnection.connected}
+                                className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-red-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 group-hover:bg-red-500/20 transition-colors">
+                                        <Target size={20} />
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${moduleHealth.adversarial.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></div>
+                                        <span className={`text-[9px] font-bold uppercase ${moduleHealth.adversarial.status === 'active' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                            {moduleHealth.adversarial.status}
+                                        </span>
+                                    </div>
+                                </div>
+                                <h4 className="text-sm font-bold text-white mb-2">Adversarial Test</h4>
+                                <div className="space-y-1 text-[10px] text-slate-400">
+                                    <div className="flex justify-between">
+                                        <span>Tests Run:</span>
+                                        <span className="font-bold text-white">{moduleHealth.adversarial.tests_run}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Attacks Blocked:</span>
+                                        <span className="font-bold text-white">{moduleHealth.adversarial.attacks_blocked}</span>
+                                    </div>
+                                </div>
+                            </button>
+
+                            {/* 5. DLP Scanner */}
+                            <button
+                                onClick={() => navigate('/dlp-scanner')}
                                 disabled={!llmConnection.connected}
                                 className="bg-[#121220] border border-slate-800 rounded-lg p-4 hover:border-green-500/30 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
                             >
@@ -830,13 +913,13 @@ const DashboardLLM = () => {
                             <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-800/50 rounded-lg p-4 flex flex-col justify-center">
                                 <div className="text-center">
                                     <div className="text-3xl font-black text-white mb-2">
-                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.dlp.status].filter(s => s === 'active').length}/4
+                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.adversarial.status, moduleHealth.dlp.status].filter(s => s === 'active').length}/5
                                     </div>
                                     <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-3">
                                         Modules Active
                                     </div>
                                     <div className="flex justify-center gap-1 mb-3">
-                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.dlp.status].map((status, i) => (
+                                        {[moduleHealth.firewall.status, moduleHealth.pii.status, moduleHealth.jailbreak.status, moduleHealth.adversarial.status, moduleHealth.dlp.status].map((status, i) => (
                                             <div
                                                 key={i}
                                                 className={`w-2 h-2 rounded-full ${status === 'active' ? 'bg-emerald-500' : 'bg-slate-600'}`}
@@ -898,12 +981,12 @@ const DashboardLLM = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-1.5">
                                                         <div className={`w-1 h-1 rounded-full ${event.action === 'PASS' ? 'bg-emerald-500' :
-                                                                event.action === 'TRANSFORM' ? 'bg-orange-500' :
-                                                                    'bg-red-500'
+                                                            event.action === 'TRANSFORM' ? 'bg-orange-500' :
+                                                                'bg-red-500'
                                                             }`}></div>
                                                         <span className={`font-black tracking-widest text-[10px] ${event.action === 'PASS' ? 'text-emerald-500' :
-                                                                event.action === 'TRANSFORM' ? 'text-orange-500' :
-                                                                    'text-red-500'
+                                                            event.action === 'TRANSFORM' ? 'text-orange-500' :
+                                                                'text-red-500'
                                                             }`}>
                                                             {event.action}
                                                         </span>

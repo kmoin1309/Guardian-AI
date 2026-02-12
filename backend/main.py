@@ -27,6 +27,7 @@ from resource_guard import ResourceGuard
 from supply_chain import SupplyChainScanner
 from Red_team import RedTeamHarness
 from pii_scanner import PIIScanner
+from rag_poisoning import get_rag_poisoning_lab
 
 # ✅ Import PII attack framework
 try:
@@ -196,10 +197,11 @@ async def test_pii_domain(
                 .first()
             )
         if model:
+            endpoint_url = _normalize_llm_endpoint(model.endpoint_url)
             connected_llm = {
                 'id': model.id,
                 'model_name': model.model_name,
-                'endpoint_url': model.endpoint_url,
+                'endpoint_url': endpoint_url,
                 'api_model_name': model.model_name,
                 'auth_type': model.auth_type,
                 'api_key': model.api_key,
@@ -445,10 +447,11 @@ async def run_red_team_suite(
                 .first()
             )
         if model:
+            endpoint_url = _normalize_llm_endpoint(model.endpoint_url)
             connected_llm = {
                 'id': model.id,
                 'model_name': model.model_name,
-                'endpoint_url': model.endpoint_url,
+                'endpoint_url': endpoint_url,
                 'api_model_name': model.model_name,
                 'auth_type': model.auth_type,
                 'api_key': model.api_key,
@@ -480,7 +483,7 @@ async def run_red_team_suite(
             start = time.time()
             print(f"DEBUG: Attack to {connected_llm['endpoint_url']} | Auth: {connected_llm.get('auth_type')} | Key: {connected_llm.get('api_key')[:4]}***" if connected_llm.get('api_key') else "No Key")
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:
                 resp = await client.post(connected_llm['endpoint_url'], json=payload, headers=headers)
             elapsed_ms = round((time.time() - start) * 1000)
 
@@ -1074,6 +1077,19 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+def _normalize_llm_endpoint(url: str) -> str:
+    """
+    Helper to ensure Ollama URLs have the correct chat completion path.
+    If URL matches localhost:11434 and has no path, append /v1/chat/completions
+    """
+    if "11434" in url and not url.endswith("/v1/chat/completions") and not url.endswith("/api/navigate"):
+         # Remove trailing slash if present
+        clean_url = url.rstrip("/")
+        # If it looks like just the base URL, append the standard OpenAI-compatible path
+        if clean_url.endswith("11434") or clean_url.endswith("11434/"):
+             return f"{clean_url}/v1/chat/completions"
+    return url
+
 @app.post("/api/llm/connect")
 async def connect_llm(
     request: dict,
@@ -1093,8 +1109,12 @@ async def connect_llm(
     model_name = request.get('model_name', 'llama3.2')
     auth_type = request.get('auth_type', 'none')
     
+    # Normalize URL (fix 405 errors for Ollama)
+    raw_url = request['endpoint_url']
+    endpoint_url = _normalize_llm_endpoint(raw_url)
+
     print(f" Connecting LLM: {model_name}")
-    print(f" Endpoint: {request['endpoint_url']}")
+    print(f" Endpoint: {endpoint_url}")
     print(f" Auth: {auth_type}")
     
     # ====== STEP 1: Save to database FIRST (so dashboard shows connected) ======
@@ -1102,7 +1122,7 @@ async def connect_llm(
         user_id=current_user.id,
         model_name=request['model_name'],
         model_type=request.get('model_type', 'chatbot'),
-        endpoint_url=request['endpoint_url'],
+        endpoint_url=endpoint_url,
         auth_type=auth_type,
         api_key=request.get('api_key'),
         is_validated=True,
@@ -1118,7 +1138,7 @@ async def connect_llm(
     connected_llm = {
         'id': new_model.id,
         'model_name': request['model_name'],
-        'endpoint_url': request['endpoint_url'],
+        'endpoint_url': endpoint_url,
         'api_model_name': model_name,
         'auth_type': auth_type,
         'api_key': request.get('api_key'),
@@ -1149,9 +1169,9 @@ async def connect_llm(
         
         start_time = time.time()
         
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
-                request['endpoint_url'],
+                endpoint_url,
                 json=test_payload,
                 headers=headers
             )
@@ -1169,6 +1189,10 @@ async def connect_llm(
                 validation_message = f"Connected but model '{model_name}' not found at endpoint"
                 health_status = "model_not_found"
                 print(f"[WARN] Model not found: {model_name}")
+            elif response.status_code == 405:
+                validation_message = f"Endpoint Method Not Allowed (405). Check URL path."
+                health_status = "config_error"
+                print(f"[WARN] 405 Method Not Allowed - URL might be wrong: {endpoint_url}")
             else:
                 validation_message = f"Connected (endpoint returned {response.status_code})"
                 health_status = "degraded"
@@ -1249,7 +1273,7 @@ async def test_llm_connection(
         
         start_time = time.time()
         
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 model.endpoint_url,
                 json=test_payload,
@@ -1876,14 +1900,15 @@ async def test_jailbreak_attack(
         if not model:
             model = db.query(LLMModel).filter(LLMModel.user_id == current_user.id).order_by(LLMModel.created_at.desc()).first()
         if model:
+            endpoint_url = _normalize_llm_endpoint(model.endpoint_url)
             connected_llm = {
                 'id': model.id,
                 'model_name': model.model_name,
-                'endpoint_url': model.endpoint_url,
+                'endpoint_url': endpoint_url,
                 'api_model_name': model.model_name,
                 'auth_type': model.auth_type,
                 'api_key': model.api_key,
-                'status': 'connected',
+                'status': 'connected'
             }
         else:
             raise HTTPException(status_code=400, detail="No LLM connected. Please connect an LLM first.")
@@ -1903,7 +1928,7 @@ async def test_jailbreak_attack(
 
     try:
         start = time.time()
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(connected_llm['endpoint_url'], json=payload, headers=headers)
         elapsed_ms = round((time.time() - start) * 1000)
 
@@ -2031,7 +2056,7 @@ def get_connected_llm(
     db: Session = Depends(get_db)
 ):
     """Return current LLM connection status from database (used by Security Dashboard)."""
-    # Prefer validated model; otherwise any most-recent model
+    # Only return connected=True for validated (actively connected) models
     model = (
         db.query(LLMModel)
         .filter(
@@ -2041,13 +2066,6 @@ def get_connected_llm(
         .order_by(LLMModel.last_health_check.desc().nulls_last(), LLMModel.created_at.desc())
         .first()
     )
-    if not model:
-        model = (
-            db.query(LLMModel)
-            .filter(LLMModel.user_id == current_user.id)
-            .order_by(LLMModel.created_at.desc())
-            .first()
-        )
     if not model:
         return {
             "connected": False,
@@ -2063,7 +2081,7 @@ def get_connected_llm(
         "model_name": model.model_name,
         "model_type": model.model_type,
         "status": model.health_status or "connected",
-        "response_time": None,  # optional: could store from last test
+        "response_time": None,
         "last_tested": model.last_health_check.isoformat() if model.last_health_check else None,
     }
 
@@ -2152,9 +2170,10 @@ async def generate_text(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        endpoint_url = _normalize_llm_endpoint(model.endpoint_url)
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
-                model.endpoint_url,
+                endpoint_url,
                 json=payload,
                 headers=headers
             )
@@ -3400,6 +3419,100 @@ def seed_rag_demo_data(
         "message": "Demo data seeded successfully"
     }
 
+# ==================== RAG Poisoning Lab Endpoints ====================
+
+@app.get("/api/rag-poisoning/status")
+def rag_poisoning_status(current_user: User = Depends(get_current_user)):
+    """Get current RAG Poisoning Lab status"""
+    lab = get_rag_poisoning_lab()
+    return lab.get_status()
+
+
+class PoisonAttackRequest(BaseModel):
+    payload_name: Optional[str] = None
+    custom_payload: Optional[str] = None
+
+@app.post("/api/rag-poisoning/attack")
+def rag_poisoning_attack(
+    request: PoisonAttackRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Execute a poisoning attack on the RAG knowledge base"""
+    lab = get_rag_poisoning_lab()
+    result = lab.execute_poison_attack(
+        payload_name=request.payload_name,
+        custom_payload=request.custom_payload
+    )
+    return result
+
+
+class RAGQueryRequest(BaseModel):
+    query: str
+    top_k: int = 5
+
+@app.post("/api/rag-poisoning/query")
+def rag_poisoning_query(
+    request: RAGQueryRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Query the RAG system and see if poisoned chunks are retrieved"""
+    lab = get_rag_poisoning_lab()
+    return lab.query_rag(query=request.query, top_k=request.top_k)
+
+
+class DetectionRequest(BaseModel):
+    text: Optional[str] = None
+    scan_full_kb: bool = False
+
+@app.post("/api/rag-poisoning/detect")
+def rag_poisoning_detect(
+    request: DetectionRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Detect poisoning in text or scan entire knowledge base"""
+    lab = get_rag_poisoning_lab()
+    return lab.detect_poisoning(text=request.text, scan_full_kb=request.scan_full_kb)
+
+
+class MitigationRequest(BaseModel):
+    keyword_filter: bool = True
+    similarity_filter: bool = False
+    perplexity_filter: bool = False
+
+@app.post("/api/rag-poisoning/mitigate")
+def rag_poisoning_mitigate(
+    request: MitigationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Apply mitigation filters to the knowledge base"""
+    lab = get_rag_poisoning_lab()
+    result = lab.apply_mitigations(
+        keyword_filter=request.keyword_filter,
+        similarity_filter=request.similarity_filter,
+        perplexity_filter=request.perplexity_filter
+    )
+    return result.to_dict()
+
+
+@app.post("/api/rag-poisoning/reset")
+def rag_poisoning_reset(current_user: User = Depends(get_current_user)):
+    """Reset RAG knowledge base to clean state"""
+    lab = get_rag_poisoning_lab()
+    return lab.reset_kb()
+
+
+@app.post("/api/rag-poisoning/disable-mitigations")
+def rag_poisoning_disable_mitigations(current_user: User = Depends(get_current_user)):
+    """Disable all mitigations to allow poisoning attacks"""
+    lab = get_rag_poisoning_lab()
+    return lab.disable_mitigations()
+
+
+@app.get("/api/rag-poisoning/logs")
+def rag_poisoning_logs(current_user: User = Depends(get_current_user)):
+    """Get all RAG Poisoning Lab activity logs"""
+    lab = get_rag_poisoning_lab()
+    return lab.get_all_logs()
 
 if __name__ == "__main__":
     import uvicorn
